@@ -54,7 +54,7 @@ export async function createSession(gameSlug: string) {
         },
       });
       await prisma.sessionEvent.create({
-        data: { sessionId: session.id, type: "SESSION_PAUSED", payload: { note: "created" } },
+        data: { sessionId: session.id, type: "SESSION_CREATED" },
       });
       return { code: session.code, hostToken: session.hostToken, sessionId: session.id };
     } catch (err) {
