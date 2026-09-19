@@ -1,6 +1,7 @@
 import type { TimelineEventDTO } from "@/types/realtime";
 
 const TYPE_LABEL: Record<string, string> = {
+  SESSION_CREATED: "sala criada",
   PARTICIPANT_JOINED: "entrou na sala",
   PARTICIPANT_REMOVED: "foi removido(a)",
   PARTICIPANT_RENAMED: "foi renomeado(a)",
