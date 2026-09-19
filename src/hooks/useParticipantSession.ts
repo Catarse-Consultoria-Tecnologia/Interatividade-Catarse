@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSocket } from "@/lib/realtime/client";
+import { getSupabaseBrowserClient } from "@/lib/realtime/supabase-browser";
+import { participantChannel, roomChannel, REALTIME_EVENT } from "@/lib/realtime/channels";
+import { useStableState } from "./useStableState";
 import type { MyStateDTO, PublicRoomState } from "@/types/realtime";
 
 function tokenKey(code: string) {
@@ -27,99 +29,142 @@ function storeParticipantToken(code: string, token: string) {
 
 export type JoinStatus = "idle" | "joining" | "joined" | "error";
 
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message ?? "Erro inesperado.");
+  return data as T;
+}
+
 export function useParticipantSession(code: string) {
   const [joinStatus, setJoinStatus] = useState<JoinStatus>("idle");
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [room, setRoom] = useState<PublicRoomState | null>(null);
-  const [me, setMe] = useState<MyStateDTO | null>(null);
+  const [room, setRoom] = useStableState<PublicRoomState>();
+  const [me, setMe] = useStableState<MyStateDTO>();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
 
-  const join = useCallback(
-    (name: string) => {
-      setJoinStatus("joining");
-      setJoinError(null);
-      const socket = getSocket();
-      const existingToken = getStoredParticipantToken(code) ?? undefined;
-
-      function doJoin() {
-        socket.emit("participant:join", { code, name, existingToken }, (res) => {
-          if (res.ok) {
-            tokenRef.current = res.token;
-            storeParticipantToken(code, res.token);
-            setJoinStatus("joined");
-          } else {
-            setJoinStatus("error");
-            setJoinError(res.message);
-          }
-        });
-      }
-
-      if (socket.connected) doJoin();
-      else socket.once("connect", doJoin);
+  const setToken = useCallback(
+    (t: string) => {
+      tokenRef.current = t;
+      setTokenState(t);
+      storeParticipantToken(code, t);
     },
     [code],
   );
 
-  useEffect(() => {
-    const socket = getSocket();
-
-    function onRoomState(state: PublicRoomState) {
-      setRoom(state);
+  const refetchState = useCallback(async () => {
+    const t = tokenRef.current;
+    if (!t) return;
+    try {
+      const res = await fetch(`/api/rooms/${code}/state?token=${encodeURIComponent(t)}`);
+      const data = await res.json();
+      if (res.ok) {
+        setRoom(data.room);
+        setMe(data.me);
+      }
+    } catch {
+      /* a atualização em tempo real cobre o resto */
     }
-    function onMyState(state: MyStateDTO) {
-      setMe(state);
-    }
-    function onError(payload: { message: string }) {
-      setActionError(payload.message);
-    }
+  }, [code]);
 
-    socket.on("room:state", onRoomState);
-    socket.on("me:state", onMyState);
-    socket.on("error:action", onError);
-
-    // Tenta reconectar automaticamente se já houver token salvo (refresh de página).
-    const existingToken = getStoredParticipantToken(code);
-    if (existingToken && joinStatus === "idle") {
+  const join = useCallback(
+    async (name: string) => {
       setJoinStatus("joining");
-      const attempt = () => {
-        socket.emit("participant:join", { code, name: "", existingToken }, (res) => {
-          if (res.ok) {
-            tokenRef.current = res.token;
-            setJoinStatus("joined");
-          } else {
-            setJoinStatus("idle");
-          }
+      setJoinError(null);
+      try {
+        const existingToken = getStoredParticipantToken(code) ?? undefined;
+        const { token: newToken } = await postJson<{ token: string }>(`/api/rooms/${code}/join`, {
+          name,
+          existingToken,
         });
-      };
-      if (socket.connected) attempt();
-      else socket.once("connect", attempt);
-    }
+        setToken(newToken);
+        await refetchState();
+        setJoinStatus("joined");
+      } catch (err) {
+        setJoinStatus("error");
+        setJoinError(err instanceof Error ? err.message : "Não foi possível entrar na sala.");
+      }
+    },
+    [code, refetchState, setToken],
+  );
 
-    return () => {
-      socket.off("room:state", onRoomState);
-      socket.off("me:state", onMyState);
-      socket.off("error:action", onError);
-    };
+  // Reconexão silenciosa: se já existe token salvo, tenta retomar sem pedir nome de novo.
+  useEffect(() => {
+    const existingToken = getStoredParticipantToken(code);
+    if (!existingToken || joinStatus !== "idle") return;
+    setJoinStatus("joining");
+    postJson<{ token: string }>(`/api/rooms/${code}/join`, { name: "", existingToken })
+      .then(async ({ token: newToken }) => {
+        setToken(newToken);
+        await refetchState();
+        setJoinStatus("joined");
+      })
+      .catch(() => setJoinStatus("idle"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  const placeCard = useCallback(
-    (cardId: string, zoneId: string) => {
-      const token = tokenRef.current;
-      if (!token) return;
-      getSocket().emit("board:place", { code, token, cardId, zoneId });
+  // Assina os canais de Realtime assim que o token é conhecido; sem Supabase configurado,
+  // cai para polling (o próprio ator já atualiza a tela via refetchState nas ações).
+  useEffect(() => {
+    if (!token) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      const interval = setInterval(refetchState, 4000);
+      return () => clearInterval(interval);
+    }
+    const channel = supabase
+      .channel(roomChannel(code))
+      .on("broadcast", { event: REALTIME_EVENT.ROOM_STATE }, ({ payload }) =>
+        setRoom(payload as PublicRoomState),
+      )
+      .subscribe();
+    const meChannel = supabase
+      .channel(participantChannel(token))
+      .on("broadcast", { event: REALTIME_EVENT.ME_STATE }, ({ payload }) => setMe(payload as MyStateDTO))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(meChannel);
+    };
+  }, [code, token, refetchState]);
+
+  const runAction = useCallback(
+    async (body: Record<string, unknown>) => {
+      const t = tokenRef.current;
+      if (!t) return;
+      try {
+        const res = await fetch(`/api/rooms/${code}/actions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: t, ...body }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setActionError(data.message ?? "Erro inesperado.");
+        }
+      } catch {
+        setActionError("Falha de conexão. Tente novamente.");
+      }
+      void refetchState();
     },
-    [code],
+    [code, refetchState],
+  );
+
+  const placeCard = useCallback(
+    (cardId: string, zoneId: string) => runAction({ type: "PLACE_CARD", cardId, zoneId }),
+    [runAction],
   );
 
   const toggleEvidence = useCallback(
-    (cardId: string, evidenceId: string) => {
-      const token = tokenRef.current;
-      if (!token) return;
-      getSocket().emit("evidence:toggle", { code, token, cardId, evidenceId });
-    },
-    [code],
+    (cardId: string, evidenceId: string) => runAction({ type: "TOGGLE_EVIDENCE", cardId, evidenceId }),
+    [runAction],
   );
 
   const respondScenario = useCallback(
@@ -133,12 +178,8 @@ export function useParticipantSession(code: string) {
         markedInsufficient: boolean;
         justification: string;
       }>,
-    ) => {
-      const token = tokenRef.current;
-      if (!token) return;
-      getSocket().emit("scenario:respond", { code, token, scenarioItemId, ...patch });
-    },
-    [code],
+    ) => runAction({ type: "RESPOND_SCENARIO", scenarioItemId, ...patch }),
+    [runAction],
   );
 
   return { joinStatus, joinError, room, me, actionError, join, placeCard, toggleEvidence, respondScenario };

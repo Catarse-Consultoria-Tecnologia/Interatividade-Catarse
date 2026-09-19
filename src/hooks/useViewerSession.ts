@@ -1,34 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getSocket } from "@/lib/realtime/client";
+import { useCallback, useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/realtime/supabase-browser";
+import { roomChannel, REALTIME_EVENT } from "@/lib/realtime/channels";
+import { useStableState } from "./useStableState";
 import type { PublicRoomState } from "@/types/realtime";
 
+const POLL_FALLBACK_MS = 4000;
+
 export function useViewerSession(code: string) {
-  const [room, setRoom] = useState<PublicRoomState | null>(null);
+  const [room, setRoom] = useStableState<PublicRoomState>();
   const [error, setError] = useState<string | null>(null);
 
+  const fetchState = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/rooms/${code}/state`);
+      const data = await res.json();
+      if (res.ok) setRoom(data.room);
+      else setError(data.message ?? "Sala não encontrada.");
+    } catch {
+      setError("Falha de conexão.");
+    }
+  }, [code]);
+
   useEffect(() => {
-    const socket = getSocket();
+    void fetchState();
+  }, [fetchState]);
 
-    function onRoomState(state: PublicRoomState) {
-      setRoom(state);
+  // Assina o Realtime quando disponível; senão cai para polling (degradação graciosa).
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      const interval = setInterval(fetchState, POLL_FALLBACK_MS);
+      return () => clearInterval(interval);
     }
 
-    socket.on("room:state", onRoomState);
-
-    function doJoin() {
-      socket.emit("viewer:join", { code }, (res) => {
-        if (!res.ok) setError(res.message);
-      });
-    }
-    if (socket.connected) doJoin();
-    else socket.once("connect", doJoin);
+    const channel = supabase
+      .channel(roomChannel(code))
+      .on("broadcast", { event: REALTIME_EVENT.ROOM_STATE }, ({ payload }) =>
+        setRoom(payload as PublicRoomState),
+      )
+      .subscribe();
 
     return () => {
-      socket.off("room:state", onRoomState);
+      supabase.removeChannel(channel);
     };
-  }, [code]);
+  }, [code, fetchState]);
 
   return { room, error };
 }
