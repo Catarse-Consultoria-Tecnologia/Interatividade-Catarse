@@ -21,7 +21,13 @@ function log(step) {
 async function placeAllCards(page, zoneName) {
   for (const key of CARD_KEYS) {
     await page.getByTestId(`card-${key}`).click();
-    await page.getByTestId("zone-picker").getByRole("button", { name: zoneName, exact: true }).click();
+    const picker = page.getByTestId("zone-picker");
+    await picker.waitFor({ state: "visible" });
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/actions") && r.request().method() === "POST"),
+      picker.getByRole("button", { name: zoneName, exact: true }).click(),
+    ]);
+    await picker.waitFor({ state: "hidden" });
   }
 }
 
