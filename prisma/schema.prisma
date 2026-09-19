@@ -1,0 +1,434 @@
+// Motor genérico de jogos/dinâmicas interativas da Catarse.
+// "Operação SFN — Quem Faz o Quê?" é o primeiro Game cadastrado (ver prisma/seed.ts),
+// mas o modelo abaixo não assume nada específico de SFN: Game/Zone/Card/Evidence/Scenario
+// são todos parametrizáveis para permitir futuros jogos (Operação API, Operação Crédito, etc.)
+// conforme EF-01 §44 "Motor configurável".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Conteúdo do jogo (cadastrado por jogo, reutilizável entre sessões)
+// ---------------------------------------------------------------------------
+
+enum GameStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Game {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String
+  version     String     @default("1.0")
+  status      GameStatus @default(DRAFT)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  zones     Zone[]
+  cards     Card[]
+  evidences Evidence[]
+  scenarios Scenario[]
+  badges    Badge[]
+  sessions  Session[]
+
+  @@map("games")
+}
+
+model Zone {
+  id          String  @id @default(cuid())
+  gameId      String
+  key         String
+  name        String
+  subtitle    String
+  description String
+  order       Int
+  // Zona-coringa que representa "ainda não há evidência suficiente" (EF-01 §11, zona obrigatória).
+  isFallback  Boolean @default(false)
+  color       String? // token de cor tailwind opcional para theming por jogo
+
+  game            Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  correctForCards CardAnswer[]
+  placements      Placement[]
+
+  @@unique([gameId, key])
+  @@map("zones")
+}
+
+enum CardType {
+  ENTITY // órgãos e entidades (CMN, BCB, CVM...)
+  INSTITUTION_TYPE // tipos de instituição (SCD, SEP, IP...)
+  CONCEPT // conceitos especiais (Fintech, Marca comercial...)
+  CASE // cartas de caso (ex: marca fictícia Aurora)
+}
+
+model Card {
+  id            String   @id @default(cuid())
+  gameId        String
+  key           String
+  title         String
+  subtitle      String?
+  description   String
+  cardType      CardType
+  technicalNote String? // RN-007: observação técnica adicional
+  order         Int
+
+  game                 Game                  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  answer               CardAnswer?
+  clues                Clue[]
+  placements           Placement[]
+  evidenceAssociations EvidenceAssociation[]
+
+  @@unique([gameId, key])
+  @@map("cards")
+}
+
+// Gabarito de uma carta: para qual zona ela deveria ir e quanto vale acertar.
+model CardAnswer {
+  id                           String  @id @default(cuid())
+  cardId                       String  @unique
+  zoneId                       String
+  score                        Int     @default(100)
+  technicalNote                String?
+  // Algumas cartas (ex: Fintech) têm como resposta correta justamente "em investigação",
+  // ensinando que informação insuficiente é uma conclusão válida (RN-004).
+  acceptsInsufficientAsCorrect Boolean @default(false)
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  zone Zone @relation(fields: [zoneId], references: [id])
+
+  @@map("card_answers")
+}
+
+model Clue {
+  id     String @id @default(cuid())
+  cardId String
+  order  Int
+  title  String
+  text   String
+
+  card    Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  release SessionClue[]
+
+  @@unique([cardId, order])
+  @@map("clues")
+}
+
+enum EvidenceStrength {
+  STRONG
+  COMPLEMENTARY
+  WEAK
+  DECOY // evidência enganosa (logotipo, cor do app, publicidade...) — EF-01 §22
+}
+
+model Evidence {
+  id          String           @id @default(cuid())
+  gameId      String
+  key         String
+  title       String
+  description String
+  strength    EvidenceStrength
+
+  game         Game                  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  associations EvidenceAssociation[]
+
+  @@unique([gameId, key])
+  @@map("evidences")
+}
+
+model Scenario {
+  id          String @id @default(cuid())
+  gameId      String
+  key         String
+  title       String
+  description String
+  order       Int
+
+  game      Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  documents ScenarioDocument[]
+  items     ScenarioItem[]
+
+  @@unique([gameId, key])
+  @@map("scenarios")
+}
+
+model ScenarioDocument {
+  id         String @id @default(cuid())
+  scenarioId String
+  order      Int
+  key        String
+  title      String
+  text       String
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, key])
+  @@map("scenario_documents")
+}
+
+// Uma linha da matriz que o participante precisa preencher (ex: Conta / Pix / Cartão / Crédito...)
+model ScenarioItem {
+  id         String @id @default(cuid())
+  scenarioId String
+  order      Int
+  service    String
+
+  expectedResponsavel String
+  expectedTipo        String
+  expectedSupervisor  String
+  expectedEvidenceKey String?
+  // Algumas peças do dossiê (ex: Pix, Cartão) são propositalmente subdocumentadas:
+  // "informação insuficiente" é a resposta mais defensável até chegar mais evidência.
+  insufficientIsValid Boolean @default(false)
+
+  scenario  Scenario           @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  responses ScenarioResponse[]
+
+  @@unique([scenarioId, service])
+  @@map("scenario_items")
+}
+
+model Badge {
+  id          String @id @default(cuid())
+  gameId      String
+  key         String
+  title       String
+  description String
+
+  game    Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  awarded ParticipantBadge[]
+
+  @@unique([gameId, key])
+  @@map("badges")
+}
+
+// ---------------------------------------------------------------------------
+// Estado de uma sessão jogada em sala de aula
+// ---------------------------------------------------------------------------
+
+enum SessionStatus {
+  CREATED
+  LOBBY
+  BRIEFING
+  ROUND_OPEN
+  ROUND_FROZEN
+  REVEAL
+  NEXT_ROUND
+  FINAL
+  CLOSED
+}
+
+model Session {
+  id                   String        @id @default(cuid())
+  gameId               String
+  code                 String        @unique // ex: SFN482 (RN-010: identificador único e não previsível)
+  hostToken            String        @unique // segredo do professor, guardado no localStorage do navegador dele
+  status               SessionStatus @default(CREATED)
+  currentRound         Int           @default(0)
+  totalRounds          Int           @default(4)
+  soundEnabled         Boolean       @default(false)
+  lobbyLocked          Boolean       @default(false)
+  distributionVisible  Boolean       @default(false)
+  highestRevealedRound Int           @default(0)
+  roundTimerEndsAt     DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  closedAt             DateTime?
+
+  game                 Game                  @relation(fields: [gameId], references: [id])
+  participants         Participant[]
+  placements           Placement[]
+  releasedClues        SessionClue[]
+  evidenceAssociations EvidenceAssociation[]
+  scenarioResponses    ScenarioResponse[]
+  scoreEntries         ScoreEntry[]
+  awardedBadges        ParticipantBadge[]
+  events               SessionEvent[]
+
+  @@map("sessions")
+}
+
+model Participant {
+  id         String   @id @default(cuid())
+  sessionId  String
+  name       String
+  token      String   @unique // segredo salvo no localStorage do aluno p/ reconexão (RF-026, RNF-005)
+  connected  Boolean  @default(true)
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  removed    Boolean  @default(false)
+
+  session              Session               @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  placements           Placement[]
+  evidenceAssociations EvidenceAssociation[]
+  scenarioResponses    ScenarioResponse[]
+  scoreEntries         ScoreEntry[]
+  badges               ParticipantBadge[]
+  events               SessionEvent[]
+
+  @@unique([sessionId, token])
+  @@map("participants")
+}
+
+// Histórico completo de posicionamentos — nunca é sobrescrito (RN-003, RF-012).
+// O posicionamento "atual" de uma carta é o de maior `createdAt` para o par (participant, card).
+model Placement {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  cardId        String
+  zoneId        String
+  round         Int
+  isRevision    Boolean  @default(false) // true quando já existia posicionamento anterior nesta sessão
+  createdAt     DateTime @default(now())
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  card        Card        @relation(fields: [cardId], references: [id])
+  zone        Zone        @relation(fields: [zoneId], references: [id])
+
+  @@index([sessionId, participantId, cardId, createdAt])
+  @@map("placements")
+}
+
+// Quais pistas já foram liberadas nesta sessão, e quando.
+model SessionClue {
+  id         String   @id @default(cuid())
+  sessionId  String
+  clueId     String
+  round      Int
+  releasedAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  clue    Clue    @relation(fields: [clueId], references: [id])
+
+  @@unique([sessionId, clueId])
+  @@map("session_clues")
+}
+
+// Mesa de evidências: participante associa uma evidência a uma carta/conclusão (RF-018).
+model EvidenceAssociation {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  cardId        String
+  evidenceId    String
+  createdAt     DateTime @default(now())
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  card        Card        @relation(fields: [cardId], references: [id])
+  evidence    Evidence    @relation(fields: [evidenceId], references: [id])
+
+  @@unique([sessionId, participantId, cardId, evidenceId])
+  @@map("evidence_associations")
+}
+
+// Resposta do participante para uma linha da matriz de um cenário (ex: caso Aurora).
+model ScenarioResponse {
+  id             String @id @default(cuid())
+  sessionId      String
+  participantId  String
+  scenarioItemId String
+
+  responsavel        String?
+  tipo               String?
+  supervisor         String?
+  evidence           String?
+  markedInsufficient Boolean  @default(false)
+  justification      String?
+  updatedAt          DateTime @updatedAt
+
+  session      Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant  Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  scenarioItem ScenarioItem @relation(fields: [scenarioItemId], references: [id])
+
+  @@unique([sessionId, participantId, scenarioItemId])
+  @@map("scenario_responses")
+}
+
+enum ScoreCategory {
+  CLASSIFICATION_CORRECT
+  SUPERVISOR_CORRECT
+  EVIDENCE_CORRECT
+  INSUFFICIENT_CORRECT
+  GOOD_JUSTIFICATION
+}
+
+// Pontuação não depende prioritariamente de velocidade (RN-008): cada evento pontuado
+// vira uma linha aqui, o total é a soma.
+model ScoreEntry {
+  id            String        @id @default(cuid())
+  sessionId     String
+  participantId String
+  category      ScoreCategory
+  points        Int
+  cardId        String?
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@map("score_entries")
+}
+
+model ParticipantBadge {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  badgeId       String
+  awardedAt     DateTime @default(now())
+
+  session     Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  badge       Badge       @relation(fields: [badgeId], references: [id])
+
+  @@unique([sessionId, participantId, badgeId])
+  @@map("participant_badges")
+}
+
+enum SessionEventType {
+  PARTICIPANT_JOINED
+  PARTICIPANT_REMOVED
+  PARTICIPANT_RENAMED
+  HYPOTHESIS_REGISTERED
+  HYPOTHESIS_REVISED
+  CLUE_RELEASED
+  EVIDENCE_ASSOCIATED
+  SCENARIO_RESPONSE_SAVED
+  ROUND_FROZEN
+  ROUND_RESUMED
+  ROUND_REVEALED
+  ROUND_ADVANCED
+  SESSION_PAUSED
+  SESSION_RESUMED
+  SESSION_FINISHED
+  SESSION_CLOSED
+}
+
+// Linha do tempo/auditoria completa da sessão — alimenta o painel do professor (§15/§16)
+// e os relatórios individual e de turma (§42/§43).
+model SessionEvent {
+  id            String           @id @default(cuid())
+  sessionId     String
+  type          SessionEventType
+  participantId String?
+  cardId        String?
+  payload       Json?
+  createdAt     DateTime         @default(now())
+
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant? @relation(fields: [participantId], references: [id])
+
+  @@index([sessionId, createdAt])
+  @@map("session_events")
+}

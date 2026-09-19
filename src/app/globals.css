@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(230, 185, 61, 0.08), transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(47, 183, 148, 0.06), transparent 45%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background-color: rgba(230, 185, 61, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(230, 185, 61, 0.25);
+  border-radius: 999px;
+}
+
+@layer components {
+  /* "Ficha de investigação": base de todas as cartas do jogo. */
+  .dossier-card {
+    @apply relative rounded-xl bg-paper-50 text-ink-900 shadow-card;
+    background-image: radial-gradient(circle at 8% 12%, rgba(26, 21, 8, 0.03), transparent 55%);
+  }
+
+  .dossier-card::before {
+    content: "";
+    @apply pointer-events-none absolute inset-y-3 left-0 w-1.5 rounded-r-full bg-navy-800/10;
+  }
+
+  /* Painel tipo cork-board para as zonas do tabuleiro. */
+  .cork-panel {
+    @apply relative rounded-2xl border border-white/10 bg-navy-900/60 bg-cork backdrop-blur-sm;
+  }
+
+  .stamp {
+    @apply inline-flex items-center gap-1.5 rounded-md border-2 px-2.5 py-1 font-mono text-xs font-semibold uppercase tracking-wide;
+    transform: rotate(-4deg);
+  }
+
+  .stamp-gold {
+    @apply stamp border-gold-500/70 text-gold-500;
+  }
+
+  .stamp-confirm {
+    @apply stamp border-confirm-500/70 text-confirm-500;
+  }
+
+  .stamp-alert {
+    @apply stamp border-alert-500/70 text-alert-500;
+  }
+
+  .stamp-info {
+    @apply stamp border-info-500/70 text-info-500;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 font-sans text-sm font-semibold text-ink-900 shadow-card transition active:scale-[0.98] hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 font-sans text-sm font-semibold text-paper-50 transition active:scale-[0.98] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-alert-500/40 bg-alert-500/10 px-4 py-2.5 font-sans text-sm font-semibold text-alert-400 transition active:scale-[0.98] hover:bg-alert-500/20 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .input-field {
+    @apply w-full rounded-lg border border-white/15 bg-navy-900/70 px-3.5 py-2.5 font-sans text-sm text-paper-50 placeholder:text-paper-300/40 outline-none transition focus:border-gold-500/60 focus:ring-2 focus:ring-gold-500/20;
+  }
+
+  .label-eyebrow {
+    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-500/80;
+  }
+}
