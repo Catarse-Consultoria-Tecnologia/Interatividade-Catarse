@@ -28,8 +28,23 @@ export interface SeedResult {
  * rodar em qualquer ambiente sem duplicar dados. Compartilhado entre `prisma db seed`
  * (local) e a rota administrativa `/api/admin/seed` (produção, onde este sandbox não
  * alcança o Postgres diretamente para rodar `prisma db seed` na mão).
+ *
+ * Sessions não têm cascade a partir de Game (de propósito, pra deletar um Game sozinho
+ * nunca apagar salas por acidente) — então re-popular o conteúdo apaga também as salas
+ * já criadas para este jogo (e tudo dentro delas: participantes, respostas, pontuação).
+ * Aceitável aqui porque este endpoint é só pra atualizar conteúdo, não pra preservar
+ * histórico de salas.
  */
 export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult> {
+  const existing = await prisma.game.findUnique({ where: { slug: GAME_SLUG } });
+  if (existing) {
+    await prisma.session.deleteMany({ where: { gameId: existing.id } });
+    // CardAnswer.zoneId não tem cascade a partir de Zone: se o Game for apagado direto,
+    // o Postgres tenta apagar as Zones (cascade de Game) antes das CardAnswers terem sido
+    // removidas (cascade de Game -> Card -> CardAnswer), e o FK barra a operação. Apagando
+    // as Cards primeiro, suas CardAnswers já saem do caminho antes da Zone ser tocada.
+    await prisma.card.deleteMany({ where: { gameId: existing.id } });
+  }
   await prisma.game.deleteMany({ where: { slug: GAME_SLUG } });
 
   const game = await prisma.game.create({
