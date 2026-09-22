@@ -50,15 +50,6 @@ export function EvidenceMatching({
     return set;
   }, [associationsByCard, localOptimistic]);
 
-  const usedEvidenceIds = useMemo(() => {
-    const set = new Set<string>();
-    for (const evidenceSet of associationsByCard.values()) {
-      for (const evidenceId of evidenceSet) set.add(evidenceId);
-    }
-    for (const evidenceId of localOptimistic.values()) set.add(evidenceId);
-    return set;
-  }, [associationsByCard, localOptimistic]);
-
   const firstIncompleteBatch = batches.findIndex((b) => b.cardIds.some((id) => !matchedCardIds.has(id)));
   const [batchIndex, setBatchIndex] = useState(() =>
     firstIncompleteBatch === -1 ? Math.max(0, batches.length - 1) : firstIncompleteBatch,
@@ -85,6 +76,17 @@ export function EvidenceMatching({
   const isCardMatched = (cardId: string) => matchedCardIds.has(cardId) || localOptimistic.has(cardId);
   const batchComplete = batch.cardIds.every((id) => isCardMatched(id));
   const isLastBatch = batchIndex === batches.length - 1;
+
+  // Uma mesma evidência pode ser a resposta certa de cartas em grupos diferentes (ex.: "Consulta
+  // oficial do BCB" prova o BCB no grupo 1 e uma instituição diferente no grupo 2) — por isso
+  // "já usada" só conta associações de cartas DESTE grupo, nunca de grupos já concluídos.
+  const usedEvidenceIdsInBatch = new Set<string>();
+  for (const cardId of batch.cardIds) {
+    const evidenceSet = associationsByCard.get(cardId);
+    if (evidenceSet) for (const evidenceId of evidenceSet) usedEvidenceIdsInBatch.add(evidenceId);
+    const optimisticEvidenceId = localOptimistic.get(cardId);
+    if (optimisticEvidenceId) usedEvidenceIdsInBatch.add(optimisticEvidenceId);
+  }
 
   async function handleEvidenceTap(evidenceId: string) {
     if (disabled || revealed || pending) return;
@@ -140,7 +142,7 @@ export function EvidenceMatching({
           {order.evidenceIds.map((evidenceId) => {
             const evidence = evidenceById.get(evidenceId);
             if (!evidence) return null;
-            const used = usedEvidenceIds.has(evidenceId);
+            const used = usedEvidenceIdsInBatch.has(evidenceId);
             const selected = selectedEvidenceId === evidenceId;
             const isWrong = wrongFlash?.evidenceId === evidenceId;
             return (
