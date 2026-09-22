@@ -259,7 +259,7 @@ export async function respondScenarioItem(
 
   if (session.status !== "ROUND_OPEN" || session.currentRound !== 4) {
     throw new GameServiceError(
-      "O dossiê Aurora só está disponível durante a rodada 4, com a rodada aberta.",
+      "O dossiê Nubank só está disponível durante a rodada 4, com a rodada aberta.",
       "INVALID_STATE",
     );
   }

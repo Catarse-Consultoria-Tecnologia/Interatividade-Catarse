@@ -18,7 +18,7 @@ export const ROUND_LABELS: Record<RoundKey, string> = {
   1: "Hipótese inicial",
   2: "Pistas",
   3: "Associação de evidências",
-  4: "Caso Aurora",
+  4: "Caso Nubank",
 };
 
 export interface ZoneDTO {
@@ -151,7 +151,7 @@ export interface PublicRoomState {
   distribution: CardDistributionDTO[] | null;
   /** Populado a partir da rodada 2 revelada em diante. */
   revealedZoneByCard: Record<string, string> | null;
-  /** Populado só depois que a rodada 4 (caso Aurora) é revelada. */
+  /** Populado só depois que a rodada 4 (caso Nubank) é revelada. */
   revealedScenarioAnswers: Record<string, ScenarioItemAnswerDTO> | null;
   finished: boolean;
   classReport: ClassReportDTO | null;

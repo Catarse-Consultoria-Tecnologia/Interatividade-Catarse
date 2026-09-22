@@ -47,7 +47,7 @@ export async function computeAndAwardBadges(tx: Tx, sessionId: string, gameId: s
   );
   const insufficientCorrectByParticipant = countBy(
     // Reconhecer evidência insuficiente é testado tanto no baralho principal (Rodada 2)
-    // quanto no dossiê Aurora (Rodada 4) — as duas contam pra esse distintivo.
+    // quanto no dossiê Nubank (Rodada 4) — as duas contam pra esse distintivo.
     (e) => e.category === "INSUFFICIENT_CORRECT" || e.category === "SCENARIO_INSUFFICIENT_CORRECT",
     scoreEntries,
   );

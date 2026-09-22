@@ -11,7 +11,7 @@ const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const CARD_KEYS = [
   "CMN", "BCB", "CVM", "SUSEP", "PREVIC", "FGC",
   "BANCO", "SCFI", "SCD", "SEP", "IP", "CORRETORA", "SEGURADORA",
-  "FINTECH", "MARCA", "PRESTADOR_TECH", "AURORA",
+  "FINTECH", "MARCA", "PRESTADOR_TECH", "NUBANK",
 ];
 
 function log(step) {
@@ -118,8 +118,8 @@ async function main() {
     await prof.getByRole("button", { name: "Avançar rodada" }).click();
     await p1.waitForSelector("text=Rodada 4");
 
-    log("Rodada 4: participantes preenchem o dossiê Aurora");
-    await p1.getByLabel("Responsável provável").first().selectOption("Aurora Pagamentos S.A.");
+    log("Rodada 4: participantes preenchem o dossiê Nubank");
+    await p1.getByLabel("Responsável provável").first().selectOption("Nu Pagamentos S.A.");
     await p1.getByLabel("Tipo de instituição").first().selectOption("Instituição de Pagamento");
     await p2.locator("text=Não existem informações suficientes para concluir").first().click();
 

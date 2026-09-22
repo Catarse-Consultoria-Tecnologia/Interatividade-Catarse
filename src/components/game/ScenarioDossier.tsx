@@ -15,12 +15,11 @@ const SUPERVISOR_OPTIONS = ["Banco Central do Brasil (BCB)", "CVM", "SUSEP", "PR
 // + algumas distratoras plausíveis, pra manter uma avaliação equalizada entre participantes
 // (sem depender de comparação de texto livre).
 const RESPONSAVEL_OPTIONS = [
-  "Aurora Pagamentos S.A.",
-  "Aurora Crédito SCD S.A.",
-  "Aurora Investimentos",
-  "Seguro Protege S.A.",
+  "Nu Pagamentos S.A.",
+  "Nu Financeira S.A. CFI",
+  "Nu Invest Corretora de Valores S.A.",
   "Mais de uma entidade (emissor, bandeira e processadora)",
-  "Aurora Tecnologia Ltda. (presta infraestrutura, não é a instituição responsável)",
+  "Um prestador de tecnologia terceirizado, não identificado no dossiê",
   "Não é possível determinar com os documentos disponíveis",
 ];
 
@@ -28,7 +27,7 @@ const TIPO_OPTIONS = [
   "Instituição de Pagamento",
   "Instituição de pagamento participante do arranjo Pix",
   "Emissor de cartão + arranjo de pagamento",
-  "SCD (Sociedade de Crédito Direto)",
+  "SCFI (Sociedade de Crédito, Financiamento e Investimento)",
   "Corretora/Distribuidora de valores mobiliários",
   "Seguradora",
   "Prestador de infraestrutura tecnológica (sem responsabilidade regulatória)",

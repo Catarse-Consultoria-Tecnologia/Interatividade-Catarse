@@ -436,8 +436,8 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
     },
     // --- Casos --------------------------------------------------------------
     {
-      key: "AURORA",
-      title: "AURORA",
+      key: "NUBANK",
+      title: "Nubank",
       subtitle: "Conta · Pix · Crédito · Investimentos · Seguro",
       description: "Um único aplicativo, muitos serviços. Quantas entidades existem por trás dele?",
       cardType: CardType.CASE,
@@ -446,11 +446,11 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
       acceptsInsufficientAsCorrect: true,
       answerTechnicalNote:
         "Ainda não conseguimos identificar quem concede o crédito só com o nome da marca. " +
-        "A investigação completa acontece no Dossiê #002 — Aurora.",
+        "A investigação completa acontece no Dossiê #002 — Nubank.",
       clues: [
         {
           title: "Nova evidência recebida",
-          text: "\"Aurora\" é apenas a marca apresentada ao cliente.",
+          text: "\"Nubank\" é apenas a marca apresentada ao cliente.",
         },
       ],
     },
@@ -533,37 +533,43 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
   const scenario = await prisma.scenario.create({
     data: {
       gameId: game.id,
-      key: "dossie-aurora",
-      title: "DOSSIÊ #002 — AURORA",
+      key: "dossie-nubank",
+      title: "DOSSIÊ #002 — NUBANK",
       description:
-        "A diretoria da Aurora deseja oferecer em um único aplicativo: conta, Pix, cartão, crédito, " +
-        "investimentos e seguro. Quantas entidades podem existir por trás dessa experiência?",
+        "O Nubank é um único aplicativo — conta, Pix, cartão, crédito, investimentos e seguro, tudo " +
+        "numa tela só. Mas quantas empresas diferentes existem de fato por trás dessa experiência?",
       order: 1,
       documents: {
         create: [
           {
             order: 1,
             key: "doc-a",
-            title: "Documento A — Aurora Pagamentos S.A.",
-            text: "Atua na estrutura da conta de pagamento.",
+            title: "Documento A — Nu Pagamentos S.A.",
+            text:
+              "Instituição de pagamento autorizada pelo Banco Central. Opera a conta digital, o cartão " +
+              "pré-pago e as transferências via Pix.",
           },
           {
             order: 2,
             key: "doc-b",
-            title: "Documento B — Aurora Crédito SCD S.A.",
-            text: "O contrato de crédito identifica essa instituição como credora.",
+            title: "Documento B — Nu Financeira S.A. CFI",
+            text:
+              "Sociedade de Crédito, Financiamento e Investimento autorizada pelo Banco Central. O " +
+              "contrato de empréstimo identifica essa instituição como credora.",
           },
           {
             order: 3,
             key: "doc-c",
-            title: "Documento C — Aurora Investimentos",
-            text: "Serviço prestado por instituição específica relacionada ao mercado de investimentos.",
+            title: "Documento C — Nu Invest Corretora de Valores S.A.",
+            text: "Corretora de valores mobiliários regulada pela CVM. Distribui os produtos de investimento oferecidos dentro do app.",
           },
           {
             order: 4,
             key: "doc-d",
-            title: "Documento D — Seguro Protege S.A.",
-            text: "Apólice identifica a seguradora responsável.",
+            title: "Documento D — Parceria de seguros",
+            text:
+              "O app oferece produtos de seguro, mas a documentação disponível não identifica com " +
+              "clareza qual seguradora responde pela apólice.",
           },
         ],
       },
@@ -572,7 +578,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 1,
             service: "Conta",
-            expectedResponsavel: "Aurora Pagamentos S.A.",
+            expectedResponsavel: "Nu Pagamentos S.A.",
             expectedTipo: "Instituição de Pagamento",
             expectedSupervisor: "Banco Central do Brasil (BCB)",
             expectedEvidenceKey: evidenceByKey["razao_social"]?.key,
@@ -581,7 +587,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 2,
             service: "Pix",
-            expectedResponsavel: "Aurora Pagamentos S.A.",
+            expectedResponsavel: "Nu Pagamentos S.A.",
             expectedTipo: "Instituição de pagamento participante do arranjo Pix",
             expectedSupervisor: "Banco Central do Brasil (BCB)",
             expectedEvidenceKey: evidenceByKey["consulta_bcb"]?.key,
@@ -601,8 +607,8 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 4,
             service: "Crédito",
-            expectedResponsavel: "Aurora Crédito SCD S.A.",
-            expectedTipo: "SCD (Sociedade de Crédito Direto)",
+            expectedResponsavel: "Nu Financeira S.A. CFI",
+            expectedTipo: "SCFI (Sociedade de Crédito, Financiamento e Investimento)",
             expectedSupervisor: "Banco Central do Brasil (BCB)",
             expectedEvidenceKey: evidenceByKey["cedula_credito"]?.key,
             insufficientIsValid: false,
@@ -610,7 +616,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 5,
             service: "Investimento",
-            expectedResponsavel: "Aurora Investimentos",
+            expectedResponsavel: "Nu Invest Corretora de Valores S.A.",
             expectedTipo: "Corretora/Distribuidora de valores mobiliários",
             expectedSupervisor: "CVM",
             expectedEvidenceKey: evidenceByKey["termo_adesao"]?.key,
@@ -619,11 +625,13 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 6,
             service: "Seguro",
-            expectedResponsavel: "Seguro Protege S.A.",
-            expectedTipo: "Seguradora",
-            expectedSupervisor: "SUSEP",
-            expectedEvidenceKey: evidenceByKey["apolice"]?.key,
-            insufficientIsValid: false,
+            // Lacuna deliberada: o dossiê não traz uma seguradora identificável — é o gancho
+            // pra fechar a atividade puxando o gancho pro conteúdo dos próximos slides.
+            expectedResponsavel: "Não é possível determinar com os documentos disponíveis",
+            expectedTipo: "Não é possível determinar com os documentos disponíveis",
+            expectedSupervisor: "Não sei ainda",
+            expectedEvidenceKey: null,
+            insufficientIsValid: true,
           },
         ],
       },
