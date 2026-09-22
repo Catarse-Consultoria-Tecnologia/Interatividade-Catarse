@@ -240,7 +240,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "gerais do sistema nem fiscalizo instituições.",
         },
       ],
-      evidenceKeys: ["regulamento"],
+      evidenceKeys: ["comprovante_fgc"],
     },
     // --- Tipos de instituição (exemplos reais, para falar com propriedade) ------------
     {
@@ -316,7 +316,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "tem um credor identificável, que não sou eu.",
         },
       ],
-      evidenceKeys: ["consulta_bcb", "cet"],
+      evidenceKeys: ["consulta_bcb", "razao_social"],
     },
     {
       key: "IP",
@@ -500,6 +500,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
     // no mesmo tom das pistas: o documento "falando" sobre o que ele prova e não prova.
     { key: "razao_social", title: "Razão social", description: "Sou o nome jurídico oficial por trás da marca — o que está escrito no CNPJ, não na tela do app.", strength: EvidenceStrength.STRONG },
     { key: "resolucao_cmn", title: "Resolução do CMN", description: "Sou uma norma publicada pelo Conselho Monetário Nacional. Se você me encontrar assinando algo, é o CMN que está por trás.", strength: EvidenceStrength.STRONG },
+    { key: "comprovante_fgc", title: "Comprovante de cobertura do FGC", description: "Menciono expressamente que este depósito ou crédito está coberto pelo Fundo Garantidor de Créditos — se apareço, o FGC está por trás.", strength: EvidenceStrength.STRONG },
     { key: "cnpj", title: "CNPJ", description: "Sou o número que identifica exatamente qual pessoa jurídica responde por essa operação — nenhuma outra.", strength: EvidenceStrength.STRONG },
     { key: "contrato", title: "Contrato", description: "Sou o documento que formaliza, com detalhes, a relação entre o cliente e a instituição responsável.", strength: EvidenceStrength.STRONG },
     { key: "cedula_credito", title: "Cédula de crédito", description: "Sou o título que nomeia, por escrito, quem é a credora desta operação de crédito.", strength: EvidenceStrength.STRONG },
