@@ -1,5 +1,4 @@
 import type { Prisma, PrismaClient, ScoreCategory } from "@prisma/client";
-import { fuzzyMatches } from "./text-match";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -78,21 +77,31 @@ export async function scoreMainBoardReveal(
 
 interface EvidenceLite {
   id: string;
+  key: string;
   strength: "STRONG" | "COMPLEMENTARY" | "WEAK" | "DECOY";
+}
+
+interface CardWithCorrectEvidence {
+  id: string;
+  answer: { correctEvidenceKeys: string[] } | null;
 }
 
 /**
  * Rodada 3 (mesa de evidências) revelada: premia cartas em que o participante associou
- * pelo menos uma evidência forte/complementar e nenhuma evidência enganosa (EF-01 §22-23).
+ * pelo menos uma das evidências específicas daquela carta (CardAnswer.correctEvidenceKeys)
+ * e nenhuma evidência enganosa. Cartas-conceito (Fintech, Marca, Aurora) têm essa lista
+ * vazia de propósito — nenhuma evidência do pool prova sozinha uma conclusão ali.
  */
 export async function scoreEvidenceReveal(
   tx: Tx,
   sessionId: string,
+  cards: CardWithCorrectEvidence[],
   evidences: EvidenceLite[],
 ) {
   await clearCategories(tx, sessionId, ["EVIDENCE_CORRECT"]);
 
   const evidenceById = new Map(evidences.map((e) => [e.id, e]));
+  const correctKeysByCard = new Map(cards.map((c) => [c.id, new Set(c.answer?.correctEvidenceKeys ?? [])]));
   const associations = await tx.evidenceAssociation.findMany({ where: { sessionId } });
 
   const byParticipantCard = new Map<string, string[]>();
@@ -107,12 +116,13 @@ export async function scoreEvidenceReveal(
   for (const [key, evidenceIds] of byParticipantCard.entries()) {
     const [participantId, cardId] = key.split(":");
     if (!participantId || !cardId) continue;
-    const strengths = evidenceIds.map((id) => evidenceById.get(id)?.strength);
-    const hasDecoy = strengths.includes("DECOY");
-    const hasStrongOrComplementary = strengths.some(
-      (s) => s === "STRONG" || s === "COMPLEMENTARY",
-    );
-    if (hasStrongOrComplementary && !hasDecoy) {
+    const correctKeys = correctKeysByCard.get(cardId);
+    if (!correctKeys || correctKeys.size === 0) continue;
+
+    const picked = evidenceIds.map((id) => evidenceById.get(id)).filter((e): e is EvidenceLite => !!e);
+    const hasDecoy = picked.some((e) => e.strength === "DECOY");
+    const hasCorrectEvidence = picked.some((e) => correctKeys.has(e.key));
+    if (hasCorrectEvidence && !hasDecoy) {
       entries.push({
         sessionId,
         participantId,
@@ -135,17 +145,22 @@ interface ScenarioItemLite {
   insufficientIsValid: boolean;
 }
 
-/** Rodada 4 (caso Aurora) revelada: pontua cada linha da matriz preenchida. */
+/**
+ * Rodada 4 (caso Aurora) revelada: pontua cada linha da matriz preenchida.
+ * Usa categorias SCENARIO_* próprias (nunca as da Rodada 2/3): como cada revelação de
+ * rodada limpa suas categorias antes de recalcular, compartilhar a mesma categoria entre
+ * rodadas apagaria — silenciosamente — a pontuação já registrada na rodada anterior.
+ */
 export async function scoreScenarioReveal(
   tx: Tx,
   sessionId: string,
   items: ScenarioItemLite[],
 ) {
   await clearCategories(tx, sessionId, [
-    "CLASSIFICATION_CORRECT",
+    "SCENARIO_CLASSIFICATION_CORRECT",
     "SUPERVISOR_CORRECT",
-    "EVIDENCE_CORRECT",
-    "INSUFFICIENT_CORRECT",
+    "SCENARIO_EVIDENCE_CORRECT",
+    "SCENARIO_INSUFFICIENT_CORRECT",
     "GOOD_JUSTIFICATION",
   ]);
 
@@ -162,7 +177,7 @@ export async function scoreScenarioReveal(
         entries.push({
           sessionId,
           participantId: response.participantId,
-          category: "INSUFFICIENT_CORRECT",
+          category: "SCENARIO_INSUFFICIENT_CORRECT",
           points: 100,
           note: `Linha "${response.scenarioItemId}" — reconheceu evidência insuficiente corretamente.`,
         });
@@ -178,23 +193,23 @@ export async function scoreScenarioReveal(
       continue;
     }
 
-    if (response.responsavel && fuzzyMatches(response.responsavel, item.expectedResponsavel)) {
+    if (response.responsavel && response.responsavel === item.expectedResponsavel) {
       entries.push({
         sessionId,
         participantId: response.participantId,
-        category: "CLASSIFICATION_CORRECT",
+        category: "SCENARIO_CLASSIFICATION_CORRECT",
         points: 100,
       });
     }
-    if (response.tipo && fuzzyMatches(response.tipo, item.expectedTipo)) {
+    if (response.tipo && response.tipo === item.expectedTipo) {
       entries.push({
         sessionId,
         participantId: response.participantId,
-        category: "CLASSIFICATION_CORRECT",
+        category: "SCENARIO_CLASSIFICATION_CORRECT",
         points: 50,
       });
     }
-    if (response.supervisor && fuzzyMatches(response.supervisor, item.expectedSupervisor)) {
+    if (response.supervisor && response.supervisor === item.expectedSupervisor) {
       entries.push({
         sessionId,
         participantId: response.participantId,
@@ -210,7 +225,7 @@ export async function scoreScenarioReveal(
       entries.push({
         sessionId,
         participantId: response.participantId,
-        category: "EVIDENCE_CORRECT",
+        category: "SCENARIO_EVIDENCE_CORRECT",
         points: 50,
       });
     }

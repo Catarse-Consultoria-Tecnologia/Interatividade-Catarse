@@ -127,7 +127,7 @@ export default function SalaPage() {
         )}
 
         {(room.status === "FINAL" || room.status === "CLOSED") && me.report && (
-          <IndividualReport report={me.report} name={me.name} />
+          <IndividualReport report={me.report} name={me.name} gameName={room.game.name} code={code} />
         )}
       </div>
     </main>

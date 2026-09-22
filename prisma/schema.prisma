@@ -106,6 +106,10 @@ model CardAnswer {
   // Algumas cartas (ex: Fintech) têm como resposta correta justamente "em investigação",
   // ensinando que informação insuficiente é uma conclusão válida (RN-004).
   acceptsInsufficientAsCorrect Boolean @default(false)
+  // Chaves de Evidence que efetivamente comprovam esta carta na Rodada 3 (mesa de
+  // evidências). Vazio para cartas-conceito (ex: Fintech, Marca) cuja lição é que nenhuma
+  // evidência do pool prova sozinha uma conclusão institucional.
+  correctEvidenceKeys           String[] @default([])
 
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
   zone Zone @relation(fields: [zoneId], references: [id])
@@ -360,12 +364,21 @@ model ScenarioResponse {
   @@map("scenario_responses")
 }
 
+// CLASSIFICATION_CORRECT/EVIDENCE_CORRECT/INSUFFICIENT_CORRECT são da Rodada 2/3 (baralho
+// principal, por carta); os equivalentes SCENARIO_* são da Rodada 4 (dossiê Aurora, por
+// item do cenário). Mantidos separados de propósito: uma revelação de rodada limpa e
+// recalcula só a(s) categoria(s) daquela rodada (ver `scoring.ts`), então compartilhar a
+// mesma categoria entre rodadas apagaria a pontuação de uma rodada anterior ao revelar
+// a seguinte.
 enum ScoreCategory {
   CLASSIFICATION_CORRECT
   SUPERVISOR_CORRECT
   EVIDENCE_CORRECT
   INSUFFICIENT_CORRECT
   GOOD_JUSTIFICATION
+  SCENARIO_CLASSIFICATION_CORRECT
+  SCENARIO_EVIDENCE_CORRECT
+  SCENARIO_INSUFFICIENT_CORRECT
 }
 
 // Pontuação não depende prioritariamente de velocidade (RN-008): cada evento pontuado

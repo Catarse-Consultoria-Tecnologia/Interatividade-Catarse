@@ -486,7 +486,7 @@ async function revealRound(tx: Prisma.TransactionClient, session: Session, conte
   if (session.currentRound === 2) {
     await scoreMainBoardReveal(tx, session.id, content.cards, content.zones);
   } else if (session.currentRound === 3) {
-    await scoreEvidenceReveal(tx, session.id, content.evidences);
+    await scoreEvidenceReveal(tx, session.id, content.cards, content.evidences);
   } else if (session.currentRound === 4) {
     const scenario = primaryScenario(content);
     await scoreScenarioReveal(tx, session.id, scenario.items);
@@ -508,7 +508,7 @@ async function finishSession(tx: Prisma.TransactionClient, session: Session, con
   // Garante que toda pontuação pendente da última rodada aberta seja computada antes de fechar.
   if (session.status !== "FINAL") {
     if (session.currentRound === 2) await scoreMainBoardReveal(tx, session.id, content.cards, content.zones);
-    if (session.currentRound === 3) await scoreEvidenceReveal(tx, session.id, content.evidences);
+    if (session.currentRound === 3) await scoreEvidenceReveal(tx, session.id, content.cards, content.evidences);
     if (session.currentRound === 4) {
       const scenario = primaryScenario(content);
       await scoreScenarioReveal(tx, session.id, scenario.items);
