@@ -116,9 +116,21 @@ export function EvidenceMatching({
         <p className="label-eyebrow mb-1">
           Grupo {batchIndex + 1} de {batches.length}
         </p>
-        <p className="text-sm text-paper-300/80">
-          Toque numa evidência e depois na instituição que ela comprova. Nem toda evidência tem par neste
-          grupo.
+        <ol className="list-decimal space-y-0.5 pl-4 text-sm text-paper-300/80">
+          <li>
+            Toque numa evidência, na coluna da esquerda (ela fica destacada em dourado).
+          </li>
+          <li>
+            Depois toque na instituição, na coluna da direita, que você acha que essa evidência comprova.
+          </li>
+          <li>
+            Acertou: os dois ficam marcados com ✓ e travados. Errou: os dois piscam em vermelho e você
+            tenta de novo — sem problema.
+          </li>
+        </ol>
+        <p className="mt-2 text-xs text-paper-300/60">
+          Atenção: uma das evidências deste grupo não combina com nenhuma instituição aqui — reconhecer
+          qual é também faz parte do desafio.
         </p>
       </div>
 
