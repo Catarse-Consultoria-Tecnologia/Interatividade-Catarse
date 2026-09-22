@@ -9,6 +9,7 @@ import { computeClassReport, computeIndividualReport } from "./reports";
 import type {
   CardDistributionDTO,
   CardDTO,
+  EvidenceMatchBatchDTO,
   GameContentDTO,
   MyStateDTO,
   ProfessorActionType,
@@ -183,13 +184,20 @@ export async function placeCard(code: string, token: string, cardId: string, zon
   return { isRevision };
 }
 
-export async function toggleEvidence(code: string, token: string, cardId: string, evidenceId: string) {
+/**
+ * Rodada 3: jogo de associação (evidência <-> instituição), em grupos pequenos.
+ * O cliente nunca recebe qual evidência é a certa pra cada carta — só tenta um par por vez
+ * e a validação acontece aqui. Um par errado não é persistido (sem penalidade, só tenta de
+ * novo); um par certo vira um EvidenceAssociation, a mesma tabela que a Rodada 3 já usava,
+ * então a pontuação em `scoring.ts` funciona sem mudanças.
+ */
+export async function matchEvidence(code: string, token: string, cardId: string, evidenceId: string) {
   const session = await requireSession(code);
   const participant = await requireParticipant(session.id, token);
 
   if (session.status !== "ROUND_OPEN" || session.currentRound !== 3) {
     throw new GameServiceError(
-      "A mesa de evidências só está disponível durante a rodada 3, com a rodada aberta.",
+      "O jogo de associação só está disponível durante a rodada 3, com a rodada aberta.",
       "INVALID_STATE",
     );
   }
@@ -198,6 +206,11 @@ export async function toggleEvidence(code: string, token: string, cardId: string
   const card = content.cards.find((c) => c.id === cardId);
   const evidence = content.evidences.find((e) => e.id === evidenceId);
   if (!card || !evidence) throw new GameServiceError("Carta ou evidência inválida.", "BAD_REQUEST");
+
+  const correctKeys = card.answer?.correctEvidenceKeys ?? [];
+  if (!correctKeys.includes(evidence.key)) {
+    return { correct: false };
+  }
 
   const existing = await prisma.evidenceAssociation.findUnique({
     where: {
@@ -209,25 +222,21 @@ export async function toggleEvidence(code: string, token: string, cardId: string
       },
     },
   });
-
-  if (existing) {
-    await prisma.evidenceAssociation.delete({ where: { id: existing.id } });
-    return { associated: false };
+  if (!existing) {
+    await prisma.evidenceAssociation.create({
+      data: { sessionId: session.id, participantId: participant.id, cardId, evidenceId },
+    });
+    await prisma.sessionEvent.create({
+      data: {
+        sessionId: session.id,
+        type: "EVIDENCE_ASSOCIATED",
+        participantId: participant.id,
+        cardId,
+        payload: { evidenceKey: evidence.key, strength: evidence.strength },
+      },
+    });
   }
-
-  await prisma.evidenceAssociation.create({
-    data: { sessionId: session.id, participantId: participant.id, cardId, evidenceId },
-  });
-  await prisma.sessionEvent.create({
-    data: {
-      sessionId: session.id,
-      type: "EVIDENCE_ASSOCIATED",
-      participantId: participant.id,
-      cardId,
-      payload: { evidenceKey: evidence.key, strength: evidence.strength },
-    },
-  });
-  return { associated: true };
+  return { correct: true };
 }
 
 const scenarioResponseSchema = z.object({
@@ -558,6 +567,7 @@ function toGameContentDTO(
         technicalNote: c.technicalNote,
         order: c.order,
         totalClues: c.clues.length,
+        hasEvidenceMatch: (c.answer?.correctEvidenceKeys.length ?? 0) > 0,
         releasedClues: c.clues
           .filter((clue) => released.has(clue.id))
           .map((clue) => ({ id: clue.id, order: clue.order, title: clue.title, text: clue.text })),
@@ -570,6 +580,7 @@ function toGameContentDTO(
       description: e.description,
       strength: e.strength,
     })),
+    evidenceMatchBatches: buildEvidenceMatchBatches(content),
     scenario: {
       id: scenario.id,
       title: scenario.title,
@@ -578,6 +589,53 @@ function toGameContentDTO(
       items: scenario.items.map((i) => ({ id: i.id, order: i.order, service: i.service })),
     },
   };
+}
+
+const EVIDENCE_MATCH_BATCH_SIZE = 5;
+
+/**
+ * Agrupa as cartas com evidência específica (ver `CardAnswer.correctEvidenceKeys`) em
+ * grupos pequenos pro jogo de associação da Rodada 3, cada um com a evidência certa de
+ * cada carta do grupo + uma evidência enganosa. Nunca inclui QUAL evidência combina com
+ * qual carta — só os dois conjuntos, na mesma ordem estável a cada chamada (o embaralhado
+ * visual acontece no cliente).
+ */
+function buildEvidenceMatchBatches(content: GameContent): EvidenceMatchBatchDTO[] {
+  const evidenceByKey = new Map(content.evidences.map((e) => [e.key, e]));
+  const decoys = content.evidences.filter((e) => e.strength === "DECOY");
+  const eligible = content.cards
+    .filter((c) => (c.answer?.correctEvidenceKeys.length ?? 0) > 0)
+    .sort((a, b) => a.order - b.order);
+
+  const batches: EvidenceMatchBatchDTO[] = [];
+  for (let start = 0; start < eligible.length; start += EVIDENCE_MATCH_BATCH_SIZE) {
+    const group = eligible.slice(start, start + EVIDENCE_MATCH_BATCH_SIZE);
+    // Várias cartas do mesmo grupo podem compartilhar uma evidência "genérica" (ex.: BANCO,
+    // SCFI, SCD e SEP são todas supervisionadas pelo BCB) — sem isso, o grupo teria menos
+    // evidências distintas que instituições, tornando o quebra-cabeça impossível de resolver.
+    // Processa as cartas com menos opções primeiro e reserva a próxima chave livre.
+    const claimed = new Set<string>();
+    const bySpecificity = [...group].sort(
+      (a, b) => (a.answer?.correctEvidenceKeys.length ?? 0) - (b.answer?.correctEvidenceKeys.length ?? 0),
+    );
+    const evidenceIdByCardId = new Map<string, string>();
+    for (const card of bySpecificity) {
+      const keys = card.answer?.correctEvidenceKeys ?? [];
+      const freeKey = keys.find((k) => !claimed.has(k)) ?? keys[0];
+      const id = freeKey ? evidenceByKey.get(freeKey)?.id : undefined;
+      if (freeKey && id) {
+        claimed.add(freeKey);
+        evidenceIdByCardId.set(card.id, id);
+      }
+    }
+    const evidenceIds = group
+      .map((c) => evidenceIdByCardId.get(c.id))
+      .filter((id): id is string => !!id);
+    const decoy = decoys.length > 0 ? decoys[(start / EVIDENCE_MATCH_BATCH_SIZE) % decoys.length] : undefined;
+    if (decoy) evidenceIds.push(decoy.id);
+    batches.push({ cardIds: group.map((c) => c.id), evidenceIds });
+  }
+  return batches;
 }
 
 async function computeDistribution(

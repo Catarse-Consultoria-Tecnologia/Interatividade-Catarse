@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { RoomHeader } from "@/components/layout/RoomHeader";
 import { Board } from "@/components/game/Board";
-import { EvidenceBoard } from "@/components/game/EvidenceBoard";
+import { EvidenceMatching } from "@/components/game/EvidenceMatching";
 import { ScenarioDossier } from "@/components/game/ScenarioDossier";
 import { DistributionPanel } from "@/components/game/DistributionPanel";
 import { IndividualReport } from "@/components/game/IndividualReport";
@@ -17,7 +17,7 @@ export default function SalaPage() {
   const code = params.codigo.toUpperCase();
   const nameFromQuery = searchParams.get("name");
 
-  const { joinStatus, joinError, room, me, actionError, join, placeCard, toggleEvidence, respondScenario } =
+  const { joinStatus, joinError, room, me, actionError, join, placeCard, matchEvidence, respondScenario } =
     useParticipantSession(code);
 
   const attemptedRef = useRef(false);
@@ -93,14 +93,15 @@ export default function SalaPage() {
             )}
 
             {room.currentRound === 3 && (
-              <EvidenceBoard
+              <EvidenceMatching
                 cards={room.game.cards}
                 evidences={room.game.evidences}
+                batches={room.game.evidenceMatchBatches}
                 associationsByCard={
                   new Map(me.evidenceAssociations.map((e) => [e.cardId, new Set(e.evidenceIds)]))
                 }
                 revealed={room.status === "REVEAL" || room.status === "FINAL"}
-                onToggle={toggleEvidence}
+                onMatch={matchEvidence}
                 disabled={disabled}
               />
             )}

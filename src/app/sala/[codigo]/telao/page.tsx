@@ -71,7 +71,7 @@ export default function TelaoPage() {
               <div className="flex flex-1 items-center justify-center">
                 <p className="font-display text-2xl text-paper-300/70">
                   {room.participantCount} investigadores trabalhando em{" "}
-                  {room.currentRound === 3 ? "Mesa de Evidências" : "Dossiê #002 — Aurora"}…
+                  {room.currentRound === 3 ? "Associação de Evidências" : "Dossiê #002 — Aurora"}…
                 </p>
               </div>
             )}

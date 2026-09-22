@@ -106,11 +106,11 @@ async function main() {
     await prof.getByRole("button", { name: "Avançar rodada" }).click();
     await p1.waitForSelector("text=Rodada 3");
 
-    log("Rodada 3: participantes associam evidências");
-    await p1.getByRole("button", { name: "CMN", exact: true }).click();
-    await p1.getByText("Resolução do CMN", { exact: true }).click();
-    await p2.getByRole("button", { name: "PicPay", exact: true }).click();
-    await p2.getByText("Consulta oficial do BCB", { exact: true }).click();
+    log("Rodada 3: participantes associam evidências (toca a evidência, depois a instituição)");
+    await p1.getByTestId("evidence-chip-resolucao_cmn").click();
+    await p1.getByTestId("institution-chip-CMN").click();
+    await p2.getByTestId("evidence-chip-consulta_susep").click();
+    await p2.getByTestId("institution-chip-SUSEP").click();
 
     log("Professor congela e revela Rodada 3");
     await prof.getByRole("button", { name: "Congelar respostas" }).click();

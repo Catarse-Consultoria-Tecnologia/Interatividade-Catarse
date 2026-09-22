@@ -316,7 +316,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "tem um credor identificável, que não sou eu.",
         },
       ],
-      evidenceKeys: ["consulta_bcb", "contrato"],
+      evidenceKeys: ["consulta_bcb", "cet"],
     },
     {
       key: "IP",

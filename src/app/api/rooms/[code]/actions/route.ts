@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   GameServiceError,
+  matchEvidence,
   placeCard,
   respondScenarioItem,
   runProfessorAction,
-  toggleEvidence,
 } from "@/lib/game-engine/session-service";
 import type { ProfessorActionType } from "@/types/realtime";
 import { broadcastAfterParticipantAction, broadcastAfterProfessorAction } from "@/lib/realtime/broadcast";
@@ -18,7 +18,7 @@ const bodySchema = z.discriminatedUnion("type", [
     zoneId: z.string().min(1),
   }),
   z.object({
-    type: z.literal("TOGGLE_EVIDENCE"),
+    type: z.literal("MATCH_EVIDENCE"),
     token: z.string().min(1),
     cardId: z.string().min(1),
     evidenceId: z.string().min(1),
@@ -56,6 +56,7 @@ export async function POST(request: Request, { params }: { params: { code: strin
   }
   const data = parsed.data;
   const code = params.code;
+  let extra: Record<string, unknown> = {};
 
   try {
     switch (data.type) {
@@ -64,8 +65,8 @@ export async function POST(request: Request, { params }: { params: { code: strin
         await broadcastAfterParticipantAction(code, data.token);
         break;
       }
-      case "TOGGLE_EVIDENCE": {
-        await toggleEvidence(code, data.token, data.cardId, data.evidenceId);
+      case "MATCH_EVIDENCE": {
+        extra = await matchEvidence(code, data.token, data.cardId, data.evidenceId);
         await broadcastAfterParticipantAction(code, data.token);
         break;
       }
@@ -92,7 +93,7 @@ export async function POST(request: Request, { params }: { params: { code: strin
         break;
       }
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...extra });
   } catch (err) {
     if (err instanceof GameServiceError) {
       return NextResponse.json({ ok: false, message: err.message }, { status: 400 });
