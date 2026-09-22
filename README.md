@@ -109,10 +109,9 @@ Supabase Realtime só é validada de fato contra um projeto Supabase real.
   primeira versão local) por rotas HTTP comuns (`/api/rooms/[code]/actions` etc.) que
   gravam no Postgres e depois publicam a atualização via Supabase Realtime. Sem Supabase
   configurado, cada tela cai para polling a cada 4s — degrada, não quebra.
-- **Pontuação da matriz do caso Aurora** (`responsável`/`tipo`): comparação por
-  palavras-chave tolerante (`src/lib/game-engine/text-match.ts`), não exige digitação
-  idêntica ao gabarito — o professor sempre vê o texto bruto de cada participante no
-  painel para julgar qualitativamente também.
+- **Pontuação da matriz do caso Nubank** (`responsável`/`tipo`/`supervisor`): campos de
+  seleção fechada (não texto livre), avaliados por igualdade exata contra o gabarito —
+  garante correção rápida e padronizada entre participantes.
 - **Cronômetro**: sincronizado via um `roundTimerEndsAt` gravado no servidor (visível
   para todos), mas é só informativo — quem controla a progressão de fato é sempre o
   professor (RN-002), nunca o relógio.

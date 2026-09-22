@@ -89,7 +89,7 @@ interface CardWithCorrectEvidence {
 /**
  * Rodada 3 (associação de evidências) revelada: premia cartas em que o participante
  * associou pelo menos uma das evidências específicas daquela carta
- * (CardAnswer.correctEvidenceKeys). Cartas-conceito (Fintech, Marca, Aurora) têm essa
+ * (CardAnswer.correctEvidenceKeys). Cartas-conceito (Fintech, Marca, Nubank) têm essa
  * lista vazia de propósito — nenhuma evidência do pool prova sozinha uma conclusão ali.
  */
 export async function scoreEvidenceReveal(
@@ -146,7 +146,7 @@ interface ScenarioItemLite {
 }
 
 /**
- * Rodada 4 (caso Aurora) revelada: pontua cada linha da matriz preenchida.
+ * Rodada 4 (caso Nubank) revelada: pontua cada linha da matriz preenchida.
  * Usa categorias SCENARIO_* próprias (nunca as da Rodada 2/3): como cada revelação de
  * rodada limpa suas categorias antes de recalcular, compartilhar a mesma categoria entre
  * rodadas apagaria — silenciosamente — a pontuação já registrada na rodada anterior.
