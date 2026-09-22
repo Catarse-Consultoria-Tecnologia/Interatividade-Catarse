@@ -11,6 +11,30 @@ import type {
 
 const SUPERVISOR_OPTIONS = ["Banco Central do Brasil (BCB)", "CVM", "SUSEP", "PREVIC", "Não sei ainda"];
 
+// Opções fechadas pra "Responsável provável" e "Tipo de instituição" — corretas do dossiê
+// + algumas distratoras plausíveis, pra manter uma avaliação equalizada entre participantes
+// (sem depender de comparação de texto livre).
+const RESPONSAVEL_OPTIONS = [
+  "Aurora Pagamentos S.A.",
+  "Aurora Crédito SCD S.A.",
+  "Aurora Investimentos",
+  "Seguro Protege S.A.",
+  "Mais de uma entidade (emissor, bandeira e processadora)",
+  "Aurora Tecnologia Ltda. (presta infraestrutura, não é a instituição responsável)",
+  "Não é possível determinar com os documentos disponíveis",
+];
+
+const TIPO_OPTIONS = [
+  "Instituição de Pagamento",
+  "Instituição de pagamento participante do arranjo Pix",
+  "Emissor de cartão + arranjo de pagamento",
+  "SCD (Sociedade de Crédito Direto)",
+  "Corretora/Distribuidora de valores mobiliários",
+  "Seguradora",
+  "Prestador de infraestrutura tecnológica (sem responsabilidade regulatória)",
+  "Não é possível determinar com os documentos disponíveis",
+];
+
 interface RowState {
   responsavel: string;
   tipo: string;
@@ -97,25 +121,35 @@ export function ScenarioDossier({
               <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <label className="text-xs font-semibold text-ink-700">
                   Responsável provável
-                  <input
+                  <select
                     className="mt-1 w-full rounded-md border border-ink-900/15 bg-white px-2.5 py-1.5 text-sm text-ink-900 outline-none focus:border-navy-600"
                     value={draft.responsavel}
                     disabled={disabled || draft.markedInsufficient}
-                    onChange={(e) => patch(item.id, { responsavel: e.target.value }, false)}
-                    onBlur={(e) => patch(item.id, { responsavel: e.target.value })}
-                    placeholder="Ex.: Aurora Crédito SCD S.A."
-                  />
+                    onChange={(e) => patch(item.id, { responsavel: e.target.value })}
+                  >
+                    <option value="">Selecione…</option>
+                    {RESPONSAVEL_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="text-xs font-semibold text-ink-700">
                   Tipo de instituição
-                  <input
+                  <select
                     className="mt-1 w-full rounded-md border border-ink-900/15 bg-white px-2.5 py-1.5 text-sm text-ink-900 outline-none focus:border-navy-600"
                     value={draft.tipo}
                     disabled={disabled || draft.markedInsufficient}
-                    onChange={(e) => patch(item.id, { tipo: e.target.value }, false)}
-                    onBlur={(e) => patch(item.id, { tipo: e.target.value })}
-                    placeholder="Ex.: SCD"
-                  />
+                    onChange={(e) => patch(item.id, { tipo: e.target.value })}
+                  >
+                    <option value="">Selecione…</option>
+                    {TIPO_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="text-xs font-semibold text-ink-700">
                   Supervisor relacionado

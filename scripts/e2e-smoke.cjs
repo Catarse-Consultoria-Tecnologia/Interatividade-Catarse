@@ -108,9 +108,8 @@ async function main() {
 
     log("Rodada 3: participantes associam evidências");
     await p1.getByRole("button", { name: "CMN", exact: true }).click();
-    await p1.getByText("CNPJ", { exact: true }).click();
-    await p1.getByText("Razão social", { exact: true }).click();
-    await p2.getByRole("button", { name: "BCB", exact: true }).click();
+    await p1.getByText("Resolução do CMN", { exact: true }).click();
+    await p2.getByRole("button", { name: "PicPay", exact: true }).click();
     await p2.getByText("Consulta oficial do BCB", { exact: true }).click();
 
     log("Professor congela e revela Rodada 3");
@@ -120,8 +119,8 @@ async function main() {
     await p1.waitForSelector("text=Rodada 4");
 
     log("Rodada 4: participantes preenchem o dossiê Aurora");
-    const contaResponsavel = p1.locator("input").first();
-    await contaResponsavel.fill("Aurora Pagamentos S.A.");
+    await p1.getByLabel("Responsável provável").first().selectOption("Aurora Pagamentos S.A.");
+    await p1.getByLabel("Tipo de instituição").first().selectOption("Instituição de Pagamento");
     await p2.locator("text=Não existem informações suficientes para concluir").first().click();
 
     log("Professor congela, revela e finaliza a atividade");

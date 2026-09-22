@@ -109,6 +109,10 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
     answerTechnicalNote?: string;
     technicalNote?: string;
     clues: ClueSeed[];
+    // Chaves de Evidence (ver `evidences` abaixo) que comprovam esta carta na Rodada 3.
+    // Vazio de propósito nas cartas-conceito: nenhuma evidência do pool prova sozinha
+    // uma conclusão ali — é exatamente a lição que essas cartas ensinam.
+    evidenceKeys?: string[];
   };
 
   const cards: CardSeed[] = [
@@ -129,6 +133,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "Estabeleço diretrizes gerais relacionadas à moeda e ao crédito.",
         },
       ],
+      evidenceKeys: ["resolucao_cmn"],
     },
     {
       key: "BCB",
@@ -146,6 +151,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "Posso adotar medidas quando problemas relevantes são encontrados.",
         },
       ],
+      evidenceKeys: ["consulta_bcb"],
     },
     {
       key: "CVM",
@@ -164,6 +170,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "participantes desse mercado.",
         },
       ],
+      evidenceKeys: ["consulta_cvm"],
     },
     {
       key: "SUSEP",
@@ -179,6 +186,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           text: "Superviso seguros, previdência complementar aberta, capitalização e resseguro.",
         },
       ],
+      evidenceKeys: ["consulta_susep"],
     },
     {
       key: "PREVIC",
@@ -194,6 +202,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           text: "Superviso entidades fechadas de previdência complementar e seus planos.",
         },
       ],
+      evidenceKeys: ["consulta_previc"],
     },
     {
       key: "FGC",
@@ -216,12 +225,15 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "gerais do sistema nem fiscalizo instituições.",
         },
       ],
+      evidenceKeys: ["regulamento"],
     },
-    // --- Tipos de instituição ---------------------------------------------
+    // --- Tipos de instituição (exemplos reais, para falar com propriedade) ------------
     {
       key: "BANCO",
-      title: "Banco Comercial / Múltiplo",
-      description: "Um dos nomes mais conhecidos do mercado financeiro.",
+      title: "Itaú Unibanco",
+      subtitle: "Banco Múltiplo",
+      description:
+        "Um dos maiores bancos do país — conta, cartão, crédito e investimento, tudo na mesma instituição.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 7,
       correctZone: ZONE.OPERA,
@@ -230,15 +242,17 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           title: "Nova evidência recebida",
           text:
             "Posso captar depósitos conforme autorização e conceder crédito dentro da minha carteira. " +
-            "Quando sou 'múltiplo', reúno diferentes carteiras autorizadas em uma mesma instituição.",
+            "Sou 'múltiplo' porque reúno diferentes carteiras autorizadas numa mesma instituição — " +
+            "é assim que ofereço conta, cartão e crédito ao mesmo tempo.",
         },
       ],
+      evidenceKeys: ["consulta_bcb", "razao_social"],
     },
     {
       key: "SCFI",
-      title: "SCFI",
-      subtitle: "Sociedade de Crédito, Financiamento e Investimento",
-      description: "Conhecida no mercado popularmente como 'financeira'.",
+      title: "Crefisa",
+      subtitle: "SCFI — Sociedade de Crédito, Financiamento e Investimento",
+      description: "Financeira tradicional, conhecida por crédito consignado e financiamento ao consumidor.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 8,
       correctZone: ZONE.OPERA,
@@ -247,15 +261,17 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           title: "Nova evidência recebida",
           text:
             "Tenho funding próprio e formas de captação permitidas. Sou forte em crédito ao consumidor " +
-            "e financiamento de bens.",
+            "e financiamento de bens — no mercado, esse tipo de instituição é popularmente chamado de " +
+            "'financeira'.",
         },
       ],
+      evidenceKeys: ["consulta_bcb", "contrato"],
     },
     {
       key: "SCD",
-      title: "SCD",
-      subtitle: "Sociedade de Crédito Direto",
-      description: "Uma das siglas mais citadas quando o assunto é fintech de crédito.",
+      title: "Creditas",
+      subtitle: "SCD — Sociedade de Crédito Direto",
+      description: "Fintech conhecida por empréstimo com garantia (imóvel, veículo), autorizada pelo BCB.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 9,
       correctZone: ZONE.OPERA,
@@ -263,31 +279,35 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
         {
           title: "Nova evidência recebida",
           text:
-            "Concedo determinadas operações de crédito por plataforma eletrônica e possuo " +
-            "enquadramento institucional próprio.",
+            "Concedo operações de crédito por plataforma eletrônica com enquadramento institucional " +
+            "próprio — não dependo de um banco parceiro para originar o crédito.",
         },
       ],
+      evidenceKeys: ["consulta_bcb", "cedula_credito"],
     },
     {
       key: "SEP",
-      title: "SEP",
-      subtitle: "Sociedade de Empréstimo entre Pessoas",
-      description: "Outra sigla comum entre fintechs de crédito.",
+      title: "Nexoos",
+      subtitle: "SEP — Sociedade de Empréstimo entre Pessoas",
+      description: "Plataforma de empréstimo peer-to-peer autorizada pelo BCB: conecta credor e tomador.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 10,
       correctZone: ZONE.OPERA,
       clues: [
         {
           title: "Nova evidência recebida",
-          text: "Aproximo credores e tomadores em operações de empréstimo entre pessoas.",
+          text:
+            "Aproximo credores e tomadores em operações de empréstimo entre pessoas — cada operação " +
+            "tem um credor identificável, que não sou eu.",
         },
       ],
+      evidenceKeys: ["consulta_bcb", "contrato"],
     },
     {
       key: "IP",
-      title: "Instituição de Pagamento",
-      subtitle: "IP",
-      description: "Onde vivem contas de pagamento, cartões pré-pagos e boa parte do Pix.",
+      title: "PicPay",
+      subtitle: "IP — Instituição de Pagamento",
+      description: "App de pagamentos usado por milhões de brasileiros para Pix, cartão e carteira digital.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 11,
       correctZone: ZONE.OPERA,
@@ -299,14 +319,16 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           title: "Nova evidência recebida",
           text:
             "Mantenho contas de pagamento e processo transações, mas não posso, só por isso, " +
-            "conceder crédito livremente.",
+            "conceder crédito livremente — pra isso, preciso de outro enquadramento.",
         },
       ],
+      evidenceKeys: ["consulta_bcb", "termos_conta"],
     },
     {
       key: "CORRETORA",
-      title: "Corretora / Distribuidora",
-      description: "Aparece quando o assunto é comprar ações, fundos ou outros investimentos.",
+      title: "XP Investimentos",
+      subtitle: "Corretora / Distribuidora",
+      description: "Uma das maiores corretoras do país — referência em ações, fundos e outros investimentos.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 12,
       correctZone: ZONE.OPERA,
@@ -318,11 +340,13 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "para meus clientes.",
         },
       ],
+      evidenceKeys: ["consulta_cvm", "termo_adesao"],
     },
     {
       key: "SEGURADORA",
-      title: "Seguradora",
-      description: "Aparece quando o assunto é apólice, sinistro e cobertura.",
+      title: "Porto Seguro",
+      subtitle: "Seguradora",
+      description: "Uma das seguradoras mais conhecidas do país — apólices de auto, residência e outros ramos.",
       cardType: CardType.INSTITUTION_TYPE,
       order: 13,
       correctZone: ZONE.OPERA,
@@ -332,12 +356,13 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           text: "Assumo o risco segurado e respondo pela apólice emitida ao segurado.",
         },
       ],
+      evidenceKeys: ["consulta_susep", "apolice"],
     },
     // --- Conceitos especiais ---------------------------------------------
     {
       key: "FINTECH",
       title: "Fintech",
-      description: "Onde pertence?",
+      description: "Termo usado por várias empresas diferentes — Nubank, C6 Bank, PicPay... Onde pertence?",
       cardType: CardType.CONCEPT,
       order: 14,
       correctZone: ZONE.INVESTIGACAO,
@@ -350,15 +375,16 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
         {
           title: "Nova evidência recebida",
           text:
-            "Descrevo uma característica ou modelo de negócio baseado em tecnologia. Sozinha, minha " +
-            "palavra não identifica CNPJ, autorização, atividade, contraparte ou supervisor.",
+            "Descrevo uma característica ou modelo de negócio baseado em tecnologia — pense em nomes " +
+            "como Nubank ou C6 Bank. Sozinha, minha palavra não identifica CNPJ, autorização, " +
+            "atividade, contraparte ou supervisor.",
         },
       ],
     },
     {
       key: "MARCA",
       title: "Marca comercial",
-      description: "É o nome que o cliente vê na tela do aplicativo.",
+      description: "É o nome que o cliente vê na tela do app — como 'Nubank' ou 'PicPay'.",
       cardType: CardType.CONCEPT,
       order: 15,
       correctZone: ZONE.INVESTIGACAO,
@@ -391,6 +417,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             "responsabilidade regulatória do serviço financeiro continua sendo da instituição contratante.",
         },
       ],
+      evidenceKeys: ["contrato"],
     },
     // --- Casos --------------------------------------------------------------
     {
@@ -434,6 +461,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
             score: c.score ?? 100,
             acceptsInsufficientAsCorrect: c.acceptsInsufficientAsCorrect ?? false,
             technicalNote: c.answerTechnicalNote,
+            correctEvidenceKeys: c.evidenceKeys ?? [],
           },
         },
       },
@@ -455,6 +483,7 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
   const evidences: EvidenceSeed[] = [
     // Fortes — comprovam diretamente o elemento investigado.
     { key: "razao_social", title: "Razão social", description: "Identificação jurídica formal da instituição.", strength: EvidenceStrength.STRONG },
+    { key: "resolucao_cmn", title: "Resolução do CMN", description: "Norma publicada pelo Conselho Monetário Nacional.", strength: EvidenceStrength.STRONG },
     { key: "cnpj", title: "CNPJ", description: "Número de identificação da pessoa jurídica responsável.", strength: EvidenceStrength.STRONG },
     { key: "contrato", title: "Contrato", description: "Documento que formaliza a relação entre cliente e instituição.", strength: EvidenceStrength.STRONG },
     { key: "cedula_credito", title: "Cédula de crédito", description: "Título que identifica a instituição credora da operação.", strength: EvidenceStrength.STRONG },
@@ -536,20 +565,20 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
           {
             order: 2,
             service: "Pix",
-            expectedResponsavel:
-              "Provavelmente Aurora Pagamentos S.A. (mesma conta), mas o dossiê não confirma isso.",
+            expectedResponsavel: "Aurora Pagamentos S.A.",
             expectedTipo: "Instituição de pagamento participante do arranjo Pix",
             expectedSupervisor: "Banco Central do Brasil (BCB)",
             expectedEvidenceKey: evidenceByKey["consulta_bcb"]?.key,
+            // O dossiê não confirma 100% (mesma conta, mas sem documento explícito pro Pix) —
+            // por isso "insuficiente" também é aceito como resposta correta pra esta linha.
             insufficientIsValid: true,
           },
           {
             order: 3,
             service: "Cartão",
-            expectedResponsavel:
-              "Pode envolver mais de uma entidade: emissor, bandeira e processadora.",
+            expectedResponsavel: "Mais de uma entidade (emissor, bandeira e processadora)",
             expectedTipo: "Emissor de cartão + arranjo de pagamento",
-            expectedSupervisor: "Banco Central do Brasil (BCB), conforme a peça",
+            expectedSupervisor: "Banco Central do Brasil (BCB)",
             expectedEvidenceKey: null,
             insufficientIsValid: true,
           },

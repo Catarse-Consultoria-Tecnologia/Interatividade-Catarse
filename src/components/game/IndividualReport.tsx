@@ -1,12 +1,40 @@
-import type { IndividualReportDTO } from "@/types/realtime";
+"use client";
 
-export function IndividualReport({ report, name }: { report: IndividualReportDTO; name: string }) {
+import { useState } from "react";
+import type { IndividualReportDTO } from "@/types/realtime";
+import { downloadIndividualReportPdf } from "@/lib/report-pdf";
+
+export function IndividualReport({
+  report,
+  name,
+  gameName,
+  code,
+}: {
+  report: IndividualReportDTO;
+  name: string;
+  gameName: string;
+  code: string;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      await downloadIndividualReportPdf(report, name, gameName, code);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <div className="dossier-card p-6 text-center">
+      <div className="dossier-card space-y-3 p-6 text-center">
         <p className="label-eyebrow">Caso encerrado</p>
         <h1 className="font-display text-2xl font-black text-ink-900">Relatório do Investigador</h1>
         <p className="mt-1 text-sm text-ink-700">{name}, aqui está o que você descobriu.</p>
+        <button type="button" className="btn-secondary" onClick={handleDownload} disabled={downloading}>
+          {downloading ? "Gerando PDF…" : "Baixar relatório em PDF"}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
