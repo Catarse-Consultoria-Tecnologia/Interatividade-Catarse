@@ -565,6 +565,7 @@ function toGameContentDTO(
         description: c.description,
         cardType: c.cardType,
         technicalNote: c.technicalNote,
+        answerTechnicalNote: c.answer?.technicalNote ?? null,
         order: c.order,
         totalClues: c.clues.length,
         hasEvidenceMatch: (c.answer?.correctEvidenceKeys.length ?? 0) > 0,

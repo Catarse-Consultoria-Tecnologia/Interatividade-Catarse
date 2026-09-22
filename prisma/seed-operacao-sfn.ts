@@ -496,31 +496,32 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
 
   type EvidenceSeed = { key: string; title: string; description: string; strength: EvidenceStrengthT };
   const evidences: EvidenceSeed[] = [
-    // Fortes — comprovam diretamente o elemento investigado.
-    { key: "razao_social", title: "Razão social", description: "Identificação jurídica formal da instituição.", strength: EvidenceStrength.STRONG },
-    { key: "resolucao_cmn", title: "Resolução do CMN", description: "Norma publicada pelo Conselho Monetário Nacional.", strength: EvidenceStrength.STRONG },
-    { key: "cnpj", title: "CNPJ", description: "Número de identificação da pessoa jurídica responsável.", strength: EvidenceStrength.STRONG },
-    { key: "contrato", title: "Contrato", description: "Documento que formaliza a relação entre cliente e instituição.", strength: EvidenceStrength.STRONG },
-    { key: "cedula_credito", title: "Cédula de crédito", description: "Título que identifica a instituição credora da operação.", strength: EvidenceStrength.STRONG },
-    { key: "apolice", title: "Apólice", description: "Documento que identifica a seguradora responsável pela cobertura.", strength: EvidenceStrength.STRONG },
-    { key: "consulta_bcb", title: "Consulta oficial do BCB", description: "Consulta pública ao cadastro de instituições autorizadas pelo Banco Central.", strength: EvidenceStrength.STRONG },
-    { key: "consulta_cvm", title: "Consulta da CVM", description: "Consulta pública ao cadastro de participantes do mercado de valores mobiliários.", strength: EvidenceStrength.STRONG },
-    { key: "consulta_susep", title: "Consulta SUSEP", description: "Consulta pública ao cadastro de seguradoras e entidades supervisionadas pela SUSEP.", strength: EvidenceStrength.STRONG },
-    { key: "consulta_previc", title: "Consulta PREVIC", description: "Consulta pública ao cadastro de entidades fechadas de previdência complementar.", strength: EvidenceStrength.STRONG },
+    // Fortes — comprovam diretamente o elemento investigado. Descrições em primeira pessoa,
+    // no mesmo tom das pistas: o documento "falando" sobre o que ele prova e não prova.
+    { key: "razao_social", title: "Razão social", description: "Sou o nome jurídico oficial por trás da marca — o que está escrito no CNPJ, não na tela do app.", strength: EvidenceStrength.STRONG },
+    { key: "resolucao_cmn", title: "Resolução do CMN", description: "Sou uma norma publicada pelo Conselho Monetário Nacional. Se você me encontrar assinando algo, é o CMN que está por trás.", strength: EvidenceStrength.STRONG },
+    { key: "cnpj", title: "CNPJ", description: "Sou o número que identifica exatamente qual pessoa jurídica responde por essa operação — nenhuma outra.", strength: EvidenceStrength.STRONG },
+    { key: "contrato", title: "Contrato", description: "Sou o documento que formaliza, com detalhes, a relação entre o cliente e a instituição responsável.", strength: EvidenceStrength.STRONG },
+    { key: "cedula_credito", title: "Cédula de crédito", description: "Sou o título que nomeia, por escrito, quem é a credora desta operação de crédito.", strength: EvidenceStrength.STRONG },
+    { key: "apolice", title: "Apólice", description: "Sou o documento que identifica, sem ambiguidade, qual seguradora responde pela cobertura contratada.", strength: EvidenceStrength.STRONG },
+    { key: "consulta_bcb", title: "Consulta oficial do BCB", description: "Sou uma consulta pública: confirmo se uma instituição está mesmo autorizada a funcionar pelo Banco Central.", strength: EvidenceStrength.STRONG },
+    { key: "consulta_cvm", title: "Consulta da CVM", description: "Sou uma consulta pública ao cadastro de quem pode operar no mercado de valores mobiliários, segundo a CVM.", strength: EvidenceStrength.STRONG },
+    { key: "consulta_susep", title: "Consulta SUSEP", description: "Sou uma consulta pública: mostro se uma seguradora ou entidade está mesmo registrada na SUSEP.", strength: EvidenceStrength.STRONG },
+    { key: "consulta_previc", title: "Consulta PREVIC", description: "Sou uma consulta pública ao cadastro de entidades fechadas de previdência complementar, segundo a PREVIC.", strength: EvidenceStrength.STRONG },
     // Complementares — ajudam a construir a conclusão, mas não bastam sozinhas.
-    { key: "cet", title: "CET", description: "Custo Efetivo Total de uma operação de crédito.", strength: EvidenceStrength.COMPLEMENTARY },
-    { key: "termos_conta", title: "Termos da conta", description: "Condições gerais de uso da conta oferecida ao cliente.", strength: EvidenceStrength.COMPLEMENTARY },
-    { key: "fatura", title: "Fatura", description: "Documento de cobrança periódica, por exemplo de cartão.", strength: EvidenceStrength.COMPLEMENTARY },
-    { key: "regulamento", title: "Regulamento", description: "Conjunto de regras que rege um produto ou serviço.", strength: EvidenceStrength.COMPLEMENTARY },
-    { key: "termo_adesao", title: "Termo de adesão", description: "Documento de aceite às condições de um produto de investimento.", strength: EvidenceStrength.COMPLEMENTARY },
-    { key: "politica_privacidade", title: "Política de privacidade", description: "Documento que descreve o tratamento de dados pessoais.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "cet", title: "CET", description: "Mostro o Custo Efetivo Total de uma operação de crédito — ajudo a entender o custo, mas não digo sozinho quem é o credor.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "termos_conta", title: "Termos da conta", description: "Trago as condições gerais da conta oferecida ao cliente — útil, mas preciso de outro documento pra confirmar quem responde por ela.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "fatura", title: "Fatura", description: "Sou a cobrança periódica que chega pro cliente, por exemplo de um cartão — indico uso, não necessariamente quem concede o crédito.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "regulamento", title: "Regulamento", description: "Reúno as regras que regem um produto ou serviço — leia-me com atenção, tenho detalhes que a propaganda não conta.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "termo_adesao", title: "Termo de adesão", description: "Sou o documento de aceite às condições de um produto de investimento — confirmo adesão, mais do que responsabilidade final.", strength: EvidenceStrength.COMPLEMENTARY },
+    { key: "politica_privacidade", title: "Política de privacidade", description: "Descrevo como os dados pessoais são tratados — informo bastante, mas não sobre quem responde financeiramente.", strength: EvidenceStrength.COMPLEMENTARY },
     // Enganosas — não sustentam sozinhas uma conclusão institucional.
-    { key: "logotipo", title: "Logotipo", description: "Identidade visual apresentada ao cliente.", strength: EvidenceStrength.DECOY },
-    { key: "cor_app", title: "Cor do aplicativo", description: "Paleta visual usada na interface do aplicativo.", strength: EvidenceStrength.DECOY },
-    { key: "nome_fantasia", title: "Nome fantasia", description: "Nome comercial usado para o público, distinto da razão social.", strength: EvidenceStrength.DECOY },
-    { key: "publicidade", title: "Publicidade", description: "Peça de comunicação ou campanha de marketing.", strength: EvidenceStrength.DECOY },
-    { key: "influenciador", title: "Influenciador", description: "Pessoa que divulga o produto nas redes sociais.", strength: EvidenceStrength.DECOY },
-    { key: "descricao_loja", title: "Descrição na loja de aplicativos", description: "Texto descritivo do app na App Store ou Play Store.", strength: EvidenceStrength.DECOY },
+    { key: "logotipo", title: "Logotipo", description: "Sou a identidade visual que o cliente vê primeiro — bonito, mas não provo absolutamente nada sozinho.", strength: EvidenceStrength.DECOY },
+    { key: "cor_app", title: "Cor do aplicativo", description: "Sou só uma paleta de cores na tela do aplicativo. Reconhecível, sim. Prova jurídica, não.", strength: EvidenceStrength.DECOY },
+    { key: "nome_fantasia", title: "Nome fantasia", description: "Sou o nome comercial que todo mundo usa no dia a dia — mas nunca me confunda com a razão social.", strength: EvidenceStrength.DECOY },
+    { key: "publicidade", title: "Publicidade", description: "Sou uma peça de comunicação, feita pra convencer, não pra comprovar responsabilidade institucional.", strength: EvidenceStrength.DECOY },
+    { key: "influenciador", title: "Influenciador", description: "Divulguei esse produto nas redes sociais. Isso me torna simpático — não me torna prova de nada.", strength: EvidenceStrength.DECOY },
+    { key: "descricao_loja", title: "Descrição na loja de aplicativos", description: "Sou o texto que aparece na App Store ou Play Store. Escrito por quem quer vender, não por quem regula.", strength: EvidenceStrength.DECOY },
   ];
   for (const e of evidences) {
     await prisma.evidence.create({ data: { gameId: game.id, ...e } });

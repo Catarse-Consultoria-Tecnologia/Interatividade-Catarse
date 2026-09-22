@@ -135,6 +135,13 @@ export function CardTile({
             </p>
           )}
 
+          {isRevealed && card.answerTechnicalNote && (
+            <p className="mt-2 rounded-md bg-gold-500/10 px-2 py-1.5 text-xs leading-snug text-navy-800">
+              <span className="font-semibold">Por que essa é a resposta certa: </span>
+              {card.answerTechnicalNote}
+            </p>
+          )}
+
           <div className="mt-2 flex items-center justify-between">
             <span className="text-[11px] font-medium text-ink-700/50">
               {currentZone ? `Em: ${currentZone.name}` : "Toque para posicionar"}

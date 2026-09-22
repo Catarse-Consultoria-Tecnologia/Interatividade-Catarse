@@ -47,6 +47,8 @@ export interface CardDTO {
   description: string;
   cardType: "ENTITY" | "INSTITUTION_TYPE" | "CONCEPT" | "CASE";
   technicalNote: string | null;
+  /** Nuance do gabarito (por que essa é a zona certa) — só faz sentido mostrar após revelar. */
+  answerTechnicalNote: string | null;
   order: number;
   /** Só preenchido depois que a pista correspondente foi liberada nesta sessão. */
   releasedClues: ClueDTO[];
