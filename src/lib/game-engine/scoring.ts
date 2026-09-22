@@ -87,10 +87,10 @@ interface CardWithCorrectEvidence {
 }
 
 /**
- * Rodada 3 (mesa de evidências) revelada: premia cartas em que o participante associou
- * pelo menos uma das evidências específicas daquela carta (CardAnswer.correctEvidenceKeys)
- * e nenhuma evidência enganosa. Cartas-conceito (Fintech, Marca, Aurora) têm essa lista
- * vazia de propósito — nenhuma evidência do pool prova sozinha uma conclusão ali.
+ * Rodada 3 (associação de evidências) revelada: premia cartas em que o participante
+ * associou pelo menos uma das evidências específicas daquela carta
+ * (CardAnswer.correctEvidenceKeys). Cartas-conceito (Fintech, Marca, Aurora) têm essa
+ * lista vazia de propósito — nenhuma evidência do pool prova sozinha uma conclusão ali.
  */
 export async function scoreEvidenceReveal(
   tx: Tx,

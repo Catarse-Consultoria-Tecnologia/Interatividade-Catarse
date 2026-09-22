@@ -136,23 +136,25 @@ export function useParticipantSession(code: string) {
   }, [code, token, refetchState]);
 
   const runAction = useCallback(
-    async (body: Record<string, unknown>) => {
+    async (body: Record<string, unknown>): Promise<Record<string, unknown> | undefined> => {
       const t = tokenRef.current;
-      if (!t) return;
+      if (!t) return undefined;
+      let data: Record<string, unknown> | undefined;
       try {
         const res = await fetch(`/api/rooms/${code}/actions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: t, ...body }),
         });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          setActionError(data.message ?? "Erro inesperado.");
+        data = await res.json();
+        if (!res.ok || !data?.ok) {
+          setActionError((data?.message as string) ?? "Erro inesperado.");
         }
       } catch {
         setActionError("Falha de conexão. Tente novamente.");
       }
       void refetchState();
+      return data;
     },
     [code, refetchState],
   );
@@ -162,8 +164,11 @@ export function useParticipantSession(code: string) {
     [runAction],
   );
 
-  const toggleEvidence = useCallback(
-    (cardId: string, evidenceId: string) => runAction({ type: "TOGGLE_EVIDENCE", cardId, evidenceId }),
+  const matchEvidence = useCallback(
+    async (cardId: string, evidenceId: string): Promise<boolean> => {
+      const data = await runAction({ type: "MATCH_EVIDENCE", cardId, evidenceId });
+      return Boolean(data?.correct);
+    },
     [runAction],
   );
 
@@ -182,5 +187,5 @@ export function useParticipantSession(code: string) {
     [runAction],
   );
 
-  return { joinStatus, joinError, room, me, actionError, join, placeCard, toggleEvidence, respondScenario };
+  return { joinStatus, joinError, room, me, actionError, join, placeCard, matchEvidence, respondScenario };
 }

@@ -70,8 +70,8 @@ src/lib/realtime/              Canais/broadcast do Supabase Realtime (servidor) 
                                 do navegador; tudo com fallback de polling
 src/app/api/rooms/[code]/      Rotas HTTP que o front chama: join, state, actions
 src/types/realtime.ts          Contrato de DTOs compartilhado front/back
-src/components/game/           Peças de UI do jogo (carta, tabuleiro, mesa de evidências,
-                                dossiê do cenário, relatórios)
+src/components/game/           Peças de UI do jogo (carta, tabuleiro, associação de
+                                evidências, dossiê do cenário, relatórios)
 src/components/professor/      Painel do professor (controles, participantes, linha do tempo)
 src/app/                       Rotas (landing, /professor/*, /sala/*)
 scripts/                       Testes de ponta a ponta com Playwright (ver abaixo)
@@ -130,7 +130,7 @@ Supabase Realtime só é validada de fato contra um projeto Supabase real.
 
 - **RF-001 a RF-030**: sala/lobby (`/professor/novo`, `/sala/{codigo}`), tabuleiro e
   cartas embaralhadas (`Board`), pistas progressivas (`RELEASE_CLUE`), histórico
-  (`Placement`/`SessionEvent`), mesa de evidências (`EvidenceBoard`), painel do professor
+  (`Placement`/`SessionEvent`), associação de evidências em grupos (`EvidenceMatching`), painel do professor
   (`ControlBar`, `ParticipantsList`, `Timeline`), reconexão (`useParticipantSession`),
   relatórios (`IndividualReport`, `ClassReport`).
 - **RN-001 a RN-010**: aplicadas na máquina de estados (`state-machine.ts`) e no serviço

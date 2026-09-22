@@ -17,7 +17,7 @@ export type RoundKey = 1 | 2 | 3 | 4;
 export const ROUND_LABELS: Record<RoundKey, string> = {
   1: "Hipótese inicial",
   2: "Pistas",
-  3: "Mesa de evidências",
+  3: "Associação de evidências",
   4: "Caso Aurora",
 };
 
@@ -51,6 +51,11 @@ export interface CardDTO {
   /** Só preenchido depois que a pista correspondente foi liberada nesta sessão. */
   releasedClues: ClueDTO[];
   totalClues: number;
+  /**
+   * Se true, essa carta participa do jogo de associação da Rodada 3 (existe uma evidência
+   * específica que a comprova). Nunca revela QUAL evidência é — só se existe uma.
+   */
+  hasEvidenceMatch: boolean;
 }
 
 export interface EvidenceDTO {
@@ -82,6 +87,16 @@ export interface ScenarioDTO {
   items: ScenarioItemDTO[];
 }
 
+/**
+ * Um grupo do jogo de associação da Rodada 3: N instituições + N evidências candidatas
+ * (uma por instituição do grupo, mais 1 evidência enganosa) — nunca diz qual evidência
+ * combina com qual instituição, só o conjunto de cada lado.
+ */
+export interface EvidenceMatchBatchDTO {
+  cardIds: string[];
+  evidenceIds: string[];
+}
+
 export interface GameContentDTO {
   id: string;
   slug: string;
@@ -90,6 +105,7 @@ export interface GameContentDTO {
   zones: ZoneDTO[];
   cards: CardDTO[];
   evidences: EvidenceDTO[];
+  evidenceMatchBatches: EvidenceMatchBatchDTO[];
   scenario: ScenarioDTO;
 }
 
