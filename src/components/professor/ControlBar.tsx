@@ -50,7 +50,7 @@ export function ControlBar({
             <button className="btn-secondary" onClick={() => runAction("FREEZE")}>
               Congelar respostas
             </button>
-            {state.currentRound === 2 && (
+            {state.currentRound === 2 && totalClues > 0 && (
               <button
                 className="btn-secondary"
                 disabled={releasing || releasedClues >= totalClues}

@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { generateRoomCode, generateSecretToken } from "./codes";
-import { loadGameContentById, loadGameContentBySlug, primaryScenario, type GameContent } from "./content";
+import {
+  loadGameContentById,
+  loadGameContentBySlug,
+  primaryScenario,
+  roundKindAt,
+  type GameContent,
+} from "./content";
 import { assertTransition, InvalidTransitionError } from "./state-machine";
 import { scoreEvidenceReveal, scoreMainBoardReveal, scoreScenarioReveal } from "./scoring";
 import { computeAndAwardBadges } from "./badges";
@@ -12,6 +18,7 @@ import type {
   EvidenceMatchBatchDTO,
   GameContentDTO,
   MyStateDTO,
+  PollDistributionDTO,
   ProfessorActionType,
   ProfessorParticipantRowDTO,
   ProfessorStateDTO,
@@ -51,7 +58,7 @@ export async function createSession(gameSlug: string) {
           code,
           hostToken,
           status: "LOBBY",
-          totalRounds: 4,
+          totalRounds: game.roundKinds.length,
         },
       });
       await prisma.sessionEvent.create({
@@ -142,14 +149,14 @@ export async function placeCard(code: string, token: string, cardId: string, zon
   const session = await requireSession(code);
   const participant = await requireParticipant(session.id, token);
 
-  if (session.status !== "ROUND_OPEN" || ![1, 2].includes(session.currentRound)) {
+  const content = await loadGameContentById(session.gameId);
+  if (session.status !== "ROUND_OPEN" || roundKindAt(content, session.currentRound) !== "PLACEMENT") {
     throw new GameServiceError(
-      "O tabuleiro só aceita novos posicionamentos durante as rodadas 1 e 2, com a rodada aberta.",
+      "O tabuleiro só aceita novos posicionamentos durante uma rodada de posicionamento aberta.",
       "INVALID_STATE",
     );
   }
 
-  const content = await loadGameContentById(session.gameId);
   const card = content.cards.find((c) => c.id === cardId);
   const zone = content.zones.find((z) => z.id === zoneId);
   if (!card || !zone) throw new GameServiceError("Carta ou zona inválida.", "BAD_REQUEST");
@@ -195,14 +202,14 @@ export async function matchEvidence(code: string, token: string, cardId: string,
   const session = await requireSession(code);
   const participant = await requireParticipant(session.id, token);
 
-  if (session.status !== "ROUND_OPEN" || session.currentRound !== 3) {
+  const content = await loadGameContentById(session.gameId);
+  if (session.status !== "ROUND_OPEN" || roundKindAt(content, session.currentRound) !== "EVIDENCE_MATCH") {
     throw new GameServiceError(
-      "O jogo de associação só está disponível durante a rodada 3, com a rodada aberta.",
+      "O jogo de associação só está disponível durante uma rodada de associação aberta.",
       "INVALID_STATE",
     );
   }
 
-  const content = await loadGameContentById(session.gameId);
   const card = content.cards.find((c) => c.id === cardId);
   const evidence = content.evidences.find((e) => e.id === evidenceId);
   if (!card || !evidence) throw new GameServiceError("Carta ou evidência inválida.", "BAD_REQUEST");
@@ -257,16 +264,17 @@ export async function respondScenarioItem(
   const session = await requireSession(code);
   const participant = await requireParticipant(session.id, token);
 
-  if (session.status !== "ROUND_OPEN" || session.currentRound !== 4) {
+  const content = await loadGameContentById(session.gameId);
+  if (session.status !== "ROUND_OPEN" || roundKindAt(content, session.currentRound) !== "SCENARIO") {
     throw new GameServiceError(
-      "O dossiê Nubank só está disponível durante a rodada 4, com a rodada aberta.",
+      "O dossiê só está disponível durante uma rodada de cenário aberta.",
       "INVALID_STATE",
     );
   }
 
   const payload = scenarioResponseSchema.parse(raw);
-  const content = await loadGameContentById(session.gameId);
   const scenario = primaryScenario(content);
+  if (!scenario) throw new GameServiceError("Este jogo não possui cenário cadastrado.", "BAD_REQUEST");
   const item = scenario.items.find((i) => i.id === scenarioItemId);
   if (!item) throw new GameServiceError("Linha da matriz inválida.", "BAD_REQUEST");
 
@@ -307,6 +315,44 @@ export async function respondScenarioItem(
       type: "SCENARIO_RESPONSE_SAVED",
       participantId: participant.id,
       payload: { scenarioItemId, service: item.service },
+    },
+  });
+}
+
+/**
+ * Enquete ao vivo (ex.: aquecimento "a operação para?"): sem gabarito — o voto só alimenta
+ * a distribuição coletiva, nunca é avaliado como certo/errado (RN não se aplica aqui).
+ */
+export async function votePoll(code: string, token: string, questionId: string, choice: string) {
+  const session = await requireSession(code);
+  const participant = await requireParticipant(session.id, token);
+
+  const content = await loadGameContentById(session.gameId);
+  if (session.status !== "ROUND_OPEN" || roundKindAt(content, session.currentRound) !== "POLL") {
+    throw new GameServiceError(
+      "A enquete só aceita respostas durante uma rodada de enquete aberta.",
+      "INVALID_STATE",
+    );
+  }
+
+  const question = content.pollQuestions.find((q) => q.id === questionId && q.round === session.currentRound);
+  if (!question) throw new GameServiceError("Pergunta inválida para esta rodada.", "BAD_REQUEST");
+  if (!question.options.includes(choice)) throw new GameServiceError("Opção inválida.", "BAD_REQUEST");
+
+  await prisma.pollResponse.upsert({
+    where: {
+      sessionId_participantId_questionId: { sessionId: session.id, participantId: participant.id, questionId },
+    },
+    create: { sessionId: session.id, participantId: participant.id, questionId, choice },
+    update: { choice },
+  });
+
+  await prisma.sessionEvent.create({
+    data: {
+      sessionId: session.id,
+      type: "POLL_VOTED",
+      participantId: participant.id,
+      payload: { questionKey: question.key, choice },
     },
   });
 }
@@ -498,7 +544,7 @@ async function revealRound(tx: Prisma.TransactionClient, session: Session, conte
     await scoreEvidenceReveal(tx, session.id, content.cards, content.evidences);
   } else if (session.currentRound === 4) {
     const scenario = primaryScenario(content);
-    await scoreScenarioReveal(tx, session.id, scenario.items);
+    if (scenario) await scoreScenarioReveal(tx, session.id, scenario.items);
   }
 
   await tx.session.update({
@@ -520,7 +566,7 @@ async function finishSession(tx: Prisma.TransactionClient, session: Session, con
     if (session.currentRound === 3) await scoreEvidenceReveal(tx, session.id, content.cards, content.evidences);
     if (session.currentRound === 4) {
       const scenario = primaryScenario(content);
-      await scoreScenarioReveal(tx, session.id, scenario.items);
+      if (scenario) await scoreScenarioReveal(tx, session.id, scenario.items);
     }
   }
   await computeAndAwardBadges(tx, session.id, content.id);
@@ -545,6 +591,11 @@ function toGameContentDTO(
     slug: content.slug,
     name: content.name,
     description: content.description,
+    rounds: content.roundKinds.map((kind, i) => ({
+      kind,
+      label: content.roundLabels[i] ?? kind,
+      intro: content.roundIntros[i] ?? "",
+    })),
     zones: content.zones.map((z) => ({
       id: z.id,
       key: z.key,
@@ -582,13 +633,23 @@ function toGameContentDTO(
       strength: e.strength,
     })),
     evidenceMatchBatches: buildEvidenceMatchBatches(content),
-    scenario: {
-      id: scenario.id,
-      title: scenario.title,
-      description: scenario.description,
-      documents: scenario.documents.map((d) => ({ id: d.id, key: d.key, title: d.title, text: d.text })),
-      items: scenario.items.map((i) => ({ id: i.id, order: i.order, service: i.service })),
-    },
+    pollQuestions: content.pollQuestions.map((q) => ({
+      id: q.id,
+      round: q.round,
+      order: q.order,
+      key: q.key,
+      prompt: q.prompt,
+      options: q.options,
+    })),
+    scenario: scenario
+      ? {
+          id: scenario.id,
+          title: scenario.title,
+          description: scenario.description,
+          documents: scenario.documents.map((d) => ({ id: d.id, key: d.key, title: d.title, text: d.text })),
+          items: scenario.items.map((i) => ({ id: i.id, order: i.order, service: i.service })),
+        }
+      : null,
   };
 }
 
@@ -673,6 +734,32 @@ async function computeDistribution(
   });
 }
 
+/** Distribuição ao vivo das PollQuestion da rodada atual — sem gabarito, só contagem por opção. */
+async function computePollDistribution(
+  sessionId: string,
+  content: GameContent,
+  round: number,
+): Promise<PollDistributionDTO[]> {
+  const questions = content.pollQuestions.filter((q) => q.round === round);
+  if (questions.length === 0) return [];
+
+  const responses = await prisma.pollResponse.findMany({
+    where: { sessionId, questionId: { in: questions.map((q) => q.id) } },
+  });
+  const byQuestion = new Map<string, Record<string, number>>();
+  for (const r of responses) {
+    const byChoice = byQuestion.get(r.questionId) ?? {};
+    byChoice[r.choice] = (byChoice[r.choice] ?? 0) + 1;
+    byQuestion.set(r.questionId, byChoice);
+  }
+
+  return questions.map((q) => {
+    const byChoice = byQuestion.get(q.id) ?? {};
+    const totalAnswers = Object.values(byChoice).reduce((a, b) => a + b, 0);
+    return { questionId: q.id, totalAnswers, byChoice };
+  });
+}
+
 async function releasedClueIdsByCard(sessionId: string): Promise<Map<string, Set<string>>> {
   const rows = await prisma.sessionClue.findMany({ where: { sessionId }, include: { clue: true } });
   const map = new Map<string, Set<string>>();
@@ -694,9 +781,12 @@ export async function buildPublicRoomState(code: string): Promise<PublicRoomStat
     orderBy: { joinedAt: "asc" },
   });
 
-  const distribution =
-    session.distributionVisible || session.status === "REVEAL" || session.status === "FINAL"
-      ? await computeDistribution(session.id, content)
+  const distributionAllowed =
+    session.distributionVisible || session.status === "REVEAL" || session.status === "FINAL";
+  const distribution = distributionAllowed ? await computeDistribution(session.id, content) : null;
+  const pollDistribution =
+    distributionAllowed && roundKindAt(content, session.currentRound) === "POLL"
+      ? await computePollDistribution(session.id, content, session.currentRound)
       : null;
 
   let revealedZoneByCard: Record<string, string> | null = null;
@@ -708,11 +798,11 @@ export async function buildPublicRoomState(code: string): Promise<PublicRoomStat
   }
 
   let revealedScenarioAnswers: PublicRoomState["revealedScenarioAnswers"] = null;
-  if (session.highestRevealedRound >= 4) {
-    const scenario = primaryScenario(content);
+  const scenarioForReveal = primaryScenario(content);
+  if (session.highestRevealedRound >= 4 && scenarioForReveal) {
     const evidenceByKey = new Map(content.evidences.map((e) => [e.key, e]));
     revealedScenarioAnswers = {};
-    for (const item of scenario.items) {
+    for (const item of scenarioForReveal.items) {
       revealedScenarioAnswers[item.id] = {
         responsavel: item.expectedResponsavel,
         tipo: item.expectedTipo,
@@ -733,7 +823,7 @@ export async function buildPublicRoomState(code: string): Promise<PublicRoomStat
   return {
     code: session.code,
     status: session.status,
-    currentRound: (session.currentRound as 0 | 1 | 2 | 3 | 4) ?? 0,
+    currentRound: session.currentRound,
     totalRounds: session.totalRounds,
     lobbyLocked: session.lobbyLocked,
     soundEnabled: session.soundEnabled,
@@ -748,6 +838,7 @@ export async function buildPublicRoomState(code: string): Promise<PublicRoomStat
     })),
     game: toGameContentDTO(content, releasedMap),
     distribution,
+    pollDistribution,
     revealedZoneByCard,
     revealedScenarioAnswers,
     finished: session.status === "FINAL" || session.status === "CLOSED",
@@ -784,6 +875,10 @@ export async function buildMyState(code: string, token: string): Promise<MyState
     where: { sessionId: session.id, participantId: participant.id },
   });
 
+  const pollResponses = await prisma.pollResponse.findMany({
+    where: { sessionId: session.id, participantId: participant.id },
+  });
+
   const scoreEntries = await prisma.scoreEntry.findMany({
     where: { sessionId: session.id, participantId: participant.id },
   });
@@ -816,6 +911,7 @@ export async function buildMyState(code: string, token: string): Promise<MyState
       markedInsufficient: r.markedInsufficient,
       justification: r.justification ?? "",
     })),
+    pollResponses: pollResponses.map((r) => ({ questionId: r.questionId, choice: r.choice })),
     totalScore,
     report,
   };
@@ -848,6 +944,10 @@ export async function buildProfessorState(code: string, hostToken: string): Prom
   }));
 
   const distributionAlways = await computeDistribution(session.id, content);
+  const pollDistributionAlways =
+    roundKindAt(content, session.currentRound) === "POLL"
+      ? await computePollDistribution(session.id, content, session.currentRound)
+      : [];
   const releasedMap = await releasedClueIdsByCard(session.id);
   const releasedClueIdsByCardRecord: Record<string, string[]> = {};
   for (const [cardId, set] of releasedMap.entries()) releasedClueIdsByCardRecord[cardId] = [...set];
@@ -873,6 +973,7 @@ export async function buildProfessorState(code: string, hostToken: string): Prom
     hostToken: session.hostToken,
     participantsDetailed,
     distributionAlways,
+    pollDistributionAlways,
     timeline,
     releasedClueIdsByCard: releasedClueIdsByCardRecord,
   };
@@ -880,7 +981,8 @@ export async function buildProfessorState(code: string, hostToken: string): Prom
 
 async function currentRoundAnswerCountByParticipant(session: Session, content: GameContent) {
   const map = new Map<string, number>();
-  if (session.currentRound === 1 || session.currentRound === 2) {
+  const kind = roundKindAt(content, session.currentRound);
+  if (kind === "PLACEMENT") {
     const placements = await prisma.placement.findMany({
       where: { sessionId: session.id, round: session.currentRound },
     });
@@ -891,7 +993,7 @@ async function currentRoundAnswerCountByParticipant(session: Session, content: G
       seen.set(p.participantId, set);
     }
     for (const [participantId, set] of seen.entries()) map.set(participantId, set.size);
-  } else if (session.currentRound === 3) {
+  } else if (kind === "EVIDENCE_MATCH") {
     const rows = await prisma.evidenceAssociation.findMany({ where: { sessionId: session.id } });
     const seen = new Map<string, Set<string>>();
     for (const r of rows) {
@@ -900,12 +1002,26 @@ async function currentRoundAnswerCountByParticipant(session: Session, content: G
       seen.set(r.participantId, set);
     }
     for (const [participantId, set] of seen.entries()) map.set(participantId, set.size);
-  } else if (session.currentRound === 4) {
+  } else if (kind === "SCENARIO") {
     const rows = await prisma.scenarioResponse.findMany({ where: { sessionId: session.id } });
     const seen = new Map<string, Set<string>>();
     for (const r of rows) {
       const set = seen.get(r.participantId) ?? new Set<string>();
       set.add(r.scenarioItemId);
+      seen.set(r.participantId, set);
+    }
+    for (const [participantId, set] of seen.entries()) map.set(participantId, set.size);
+  } else if (kind === "POLL") {
+    const questionIds = content.pollQuestions
+      .filter((q) => q.round === session.currentRound)
+      .map((q) => q.id);
+    const rows = await prisma.pollResponse.findMany({
+      where: { sessionId: session.id, questionId: { in: questionIds } },
+    });
+    const seen = new Map<string, Set<string>>();
+    for (const r of rows) {
+      const set = seen.get(r.participantId) ?? new Set<string>();
+      set.add(r.questionId);
       seen.set(r.participantId, set);
     }
     for (const [participantId, set] of seen.entries()) map.set(participantId, set.size);

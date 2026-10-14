@@ -56,6 +56,9 @@ export async function seedOperacaoSFN(prisma: PrismaClient): Promise<SeedResult>
         "do Sistema Financeiro Nacional: quem faz, quem autoriza, quem supervisiona e qual evidência comprova.",
       version: "1.0",
       status: "PUBLISHED",
+      roundKinds: ["PLACEMENT", "PLACEMENT", "EVIDENCE_MATCH", "SCENARIO"],
+      roundLabels: ["Hipótese inicial", "Pistas", "Associação de evidências", "Caso Nubank"],
+      roundIntros: ["", "", "", ""],
     },
   });
 

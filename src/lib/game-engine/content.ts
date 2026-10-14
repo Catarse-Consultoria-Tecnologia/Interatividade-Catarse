@@ -18,6 +18,7 @@ const gameContentInclude = {
       items: { orderBy: { order: "asc" } },
     },
   },
+  pollQuestions: { orderBy: [{ round: "asc" }, { order: "asc" }] },
 } satisfies Prisma.GameInclude;
 
 export type GameContent = Prisma.GameGetPayload<{ include: typeof gameContentInclude }>;
@@ -50,8 +51,12 @@ export function invalidateGameContentCache(gameId?: string) {
   else cache.clear();
 }
 
+/** Alguns jogos (ex.: os baseados só em rodadas POLL) ainda não têm nenhum Scenario cadastrado. */
 export function primaryScenario(content: GameContent) {
-  const scenario = content.scenarios[0];
-  if (!scenario) throw new Error(`Jogo "${content.slug}" não possui cenário cadastrado.`);
-  return scenario;
+  return content.scenarios[0];
+}
+
+/** Mecânica da rodada N (1-based) deste jogo, ou undefined fora do intervalo de rounds cadastrado. */
+export function roundKindAt(content: GameContent, round: number) {
+  return content.roundKinds[round - 1];
 }

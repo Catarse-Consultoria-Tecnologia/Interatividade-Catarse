@@ -12,14 +12,15 @@ export type SessionStatus =
   | "FINAL"
   | "CLOSED";
 
-export type RoundKey = 1 | 2 | 3 | 4;
+/** Mecânica de uma rodada — motor genérico (EF-01 §44), ver schema.prisma `RoundKind`. */
+export type RoundKind = "PLACEMENT" | "EVIDENCE_MATCH" | "SCENARIO" | "POLL";
 
-export const ROUND_LABELS: Record<RoundKey, string> = {
-  1: "Hipótese inicial",
-  2: "Pistas",
-  3: "Associação de evidências",
-  4: "Caso Nubank",
-};
+export interface RoundMetaDTO {
+  kind: RoundKind;
+  label: string;
+  /** Texto de abertura da rodada (ex.: a "situação" de uma rodada POLL). "" quando não há. */
+  intro: string;
+}
 
 export interface ZoneDTO {
   id: string;
@@ -99,16 +100,28 @@ export interface EvidenceMatchBatchDTO {
   evidenceIds: string[];
 }
 
+export interface PollQuestionDTO {
+  id: string;
+  round: number;
+  order: number;
+  key: string;
+  prompt: string;
+  options: string[];
+}
+
 export interface GameContentDTO {
   id: string;
   slug: string;
   name: string;
   description: string;
+  rounds: RoundMetaDTO[];
   zones: ZoneDTO[];
   cards: CardDTO[];
   evidences: EvidenceDTO[];
   evidenceMatchBatches: EvidenceMatchBatchDTO[];
-  scenario: ScenarioDTO;
+  pollQuestions: PollQuestionDTO[];
+  /** null para jogos (ainda) sem nenhum Scenario cadastrado (ex.: um jogo só com rodadas POLL). */
+  scenario: ScenarioDTO | null;
 }
 
 export interface ParticipantSummaryDTO {
@@ -135,11 +148,18 @@ export interface ScenarioItemAnswerDTO {
   insufficientIsValid: boolean;
 }
 
+/** Distribuição ao vivo de votos de uma PollQuestion — sem gabarito, só contagem por opção. */
+export interface PollDistributionDTO {
+  questionId: string;
+  totalAnswers: number;
+  byChoice: Record<string, number>;
+}
+
 /** Estado público, visto por participantes e telão — nunca inclui respostas individuais alheias. */
 export interface PublicRoomState {
   code: string;
   status: SessionStatus;
-  currentRound: RoundKey | 0;
+  currentRound: number;
   totalRounds: number;
   lobbyLocked: boolean;
   soundEnabled: boolean;
@@ -149,6 +169,8 @@ export interface PublicRoomState {
   game: GameContentDTO;
   /** Só populado quando o professor aciona "mostrar distribuição" ou após revelar a rodada. */
   distribution: CardDistributionDTO[] | null;
+  /** Mesma visibilidade de `distribution`, mas para a rodada POLL atual (null fora dela). */
+  pollDistribution: PollDistributionDTO[] | null;
   /** Populado a partir da rodada 2 revelada em diante. */
   revealedZoneByCard: Record<string, string> | null;
   /** Populado só depois que a rodada 4 (caso Nubank) é revelada. */
@@ -180,12 +202,18 @@ export interface MyScenarioResponseDTO {
   justification: string;
 }
 
+export interface MyPollResponseDTO {
+  questionId: string;
+  choice: string;
+}
+
 export interface MyStateDTO {
   participantId: string;
   name: string;
   placements: MyCardStateDTO[];
   evidenceAssociations: MyEvidenceStateDTO[];
   scenarioResponses: MyScenarioResponseDTO[];
+  pollResponses: MyPollResponseDTO[];
   totalScore: number;
   report: IndividualReportDTO | null;
 }
@@ -232,6 +260,7 @@ export interface ProfessorStateDTO extends PublicRoomState {
   hostToken: string;
   participantsDetailed: ProfessorParticipantRowDTO[];
   distributionAlways: CardDistributionDTO[];
+  pollDistributionAlways: PollDistributionDTO[];
   timeline: TimelineEventDTO[];
   releasedClueIdsByCard: Record<string, string[]>;
 }

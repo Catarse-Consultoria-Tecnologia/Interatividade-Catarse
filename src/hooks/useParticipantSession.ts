@@ -187,5 +187,21 @@ export function useParticipantSession(code: string) {
     [runAction],
   );
 
-  return { joinStatus, joinError, room, me, actionError, join, placeCard, matchEvidence, respondScenario };
+  const votePoll = useCallback(
+    (questionId: string, choice: string) => runAction({ type: "VOTE_POLL", questionId, choice }),
+    [runAction],
+  );
+
+  return {
+    joinStatus,
+    joinError,
+    room,
+    me,
+    actionError,
+    join,
+    placeCard,
+    matchEvidence,
+    respondScenario,
+    votePoll,
+  };
 }
