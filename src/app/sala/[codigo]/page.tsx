@@ -6,7 +6,9 @@ import { RoomHeader } from "@/components/layout/RoomHeader";
 import { Board } from "@/components/game/Board";
 import { EvidenceMatching } from "@/components/game/EvidenceMatching";
 import { ScenarioDossier } from "@/components/game/ScenarioDossier";
+import { PollRound } from "@/components/game/PollRound";
 import { DistributionPanel } from "@/components/game/DistributionPanel";
+import { PollDistributionPanel } from "@/components/game/PollDistributionPanel";
 import { IndividualReport } from "@/components/game/IndividualReport";
 import { Timer } from "@/components/ui/Timer";
 import { useParticipantSession } from "@/hooks/useParticipantSession";
@@ -17,8 +19,18 @@ export default function SalaPage() {
   const code = params.codigo.toUpperCase();
   const nameFromQuery = searchParams.get("name");
 
-  const { joinStatus, joinError, room, me, actionError, join, placeCard, matchEvidence, respondScenario } =
-    useParticipantSession(code);
+  const {
+    joinStatus,
+    joinError,
+    room,
+    me,
+    actionError,
+    join,
+    placeCard,
+    matchEvidence,
+    respondScenario,
+    votePoll,
+  } = useParticipantSession(code);
 
   const attemptedRef = useRef(false);
   const [manualName, setManualName] = useState("");
@@ -62,6 +74,7 @@ export default function SalaPage() {
         code={room.code}
         status={room.status}
         round={room.currentRound}
+        rounds={room.game.rounds}
         totalRounds={room.totalRounds}
         right={<Timer endsAt={room.roundTimerEndsAt} />}
       />
@@ -81,47 +94,72 @@ export default function SalaPage() {
 
         {room.status !== "LOBBY" && room.status !== "BRIEFING" && room.currentRound > 0 && (
           <>
-            {(room.currentRound === 1 || room.currentRound === 2) && (
-              <Board
-                cards={room.game.cards}
-                zones={room.game.zones}
-                placements={me.placements}
-                revealedZoneByCard={room.revealedZoneByCard}
-                onPlace={placeCard}
-                disabled={disabled}
-              />
-            )}
+            {(() => {
+              const round = room.game.rounds[room.currentRound - 1];
+              switch (round?.kind) {
+                case "PLACEMENT":
+                  return (
+                    <Board
+                      cards={room.game.cards}
+                      zones={room.game.zones}
+                      placements={me.placements}
+                      revealedZoneByCard={room.revealedZoneByCard}
+                      onPlace={placeCard}
+                      disabled={disabled}
+                    />
+                  );
+                case "EVIDENCE_MATCH":
+                  return (
+                    <EvidenceMatching
+                      cards={room.game.cards}
+                      evidences={room.game.evidences}
+                      batches={room.game.evidenceMatchBatches}
+                      associationsByCard={
+                        new Map(me.evidenceAssociations.map((e) => [e.cardId, new Set(e.evidenceIds)]))
+                      }
+                      revealed={room.status === "REVEAL" || room.status === "FINAL"}
+                      onMatch={matchEvidence}
+                      disabled={disabled}
+                    />
+                  );
+                case "SCENARIO":
+                  return room.game.scenario ? (
+                    <ScenarioDossier
+                      scenario={room.game.scenario}
+                      evidences={room.game.evidences}
+                      responses={me.scenarioResponses}
+                      revealed={room.status === "REVEAL" || room.status === "FINAL"}
+                      revealedAnswers={room.revealedScenarioAnswers}
+                      onRespond={respondScenario}
+                      disabled={disabled}
+                    />
+                  ) : null;
+                case "POLL":
+                  return (
+                    <PollRound
+                      questions={room.game.pollQuestions.filter((q) => q.round === room.currentRound)}
+                      intro={round.intro}
+                      myResponses={me.pollResponses}
+                      onVote={votePoll}
+                      disabled={disabled}
+                    />
+                  );
+                default:
+                  return null;
+              }
+            })()}
 
-            {room.currentRound === 3 && (
-              <EvidenceMatching
-                cards={room.game.cards}
-                evidences={room.game.evidences}
-                batches={room.game.evidenceMatchBatches}
-                associationsByCard={
-                  new Map(me.evidenceAssociations.map((e) => [e.cardId, new Set(e.evidenceIds)]))
-                }
-                revealed={room.status === "REVEAL" || room.status === "FINAL"}
-                onMatch={matchEvidence}
-                disabled={disabled}
-              />
-            )}
-
-            {room.currentRound === 4 && (
-              <ScenarioDossier
-                scenario={room.game.scenario}
-                evidences={room.game.evidences}
-                responses={me.scenarioResponses}
-                revealed={room.status === "REVEAL" || room.status === "FINAL"}
-                revealedAnswers={room.revealedScenarioAnswers}
-                onRespond={respondScenario}
-                disabled={disabled}
-              />
-            )}
-
-            {room.distribution && (
+            {room.distribution && room.distribution.length > 0 && (
               <div className="cork-panel p-4">
                 <p className="label-eyebrow mb-2.5">Como a turma está respondendo</p>
                 <DistributionPanel distribution={room.distribution} cards={room.game.cards} zones={room.game.zones} />
+              </div>
+            )}
+
+            {room.pollDistribution && room.pollDistribution.length > 0 && (
+              <div className="cork-panel p-4">
+                <p className="label-eyebrow mb-2.5">Como a turma está respondendo</p>
+                <PollDistributionPanel distribution={room.pollDistribution} questions={room.game.pollQuestions} />
               </div>
             )}
           </>

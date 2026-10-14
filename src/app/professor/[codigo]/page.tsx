@@ -9,6 +9,7 @@ import { ControlBar } from "@/components/professor/ControlBar";
 import { ParticipantsList } from "@/components/professor/ParticipantsList";
 import { Timeline } from "@/components/professor/Timeline";
 import { DistributionPanel } from "@/components/game/DistributionPanel";
+import { PollDistributionPanel } from "@/components/game/PollDistributionPanel";
 import { ClassReport } from "@/components/game/ClassReport";
 import { useProfessorSession, getStoredHostToken } from "@/hooks/useProfessorSession";
 
@@ -51,6 +52,7 @@ export default function ProfessorRoomPage() {
         code={state.code}
         status={state.status}
         round={state.currentRound}
+        rounds={state.game.rounds}
         totalRounds={state.totalRounds}
         participantCount={state.participantCount}
         right={<Timer endsAt={state.roundTimerEndsAt} />}
@@ -86,11 +88,18 @@ export default function ProfessorRoomPage() {
         {state.status !== "LOBBY" && state.status !== "BRIEFING" && (
           <div className="cork-panel p-4">
             <p className="label-eyebrow mb-2.5">Distribuição de respostas (visível só para você, exceto quando publicada)</p>
-            <DistributionPanel
-              distribution={state.distributionAlways}
-              cards={state.game.cards}
-              zones={state.game.zones}
-            />
+            {state.game.rounds[state.currentRound - 1]?.kind === "POLL" ? (
+              <PollDistributionPanel
+                distribution={state.pollDistributionAlways}
+                questions={state.game.pollQuestions}
+              />
+            ) : (
+              <DistributionPanel
+                distribution={state.distributionAlways}
+                cards={state.game.cards}
+                zones={state.game.zones}
+              />
+            )}
           </div>
         )}
 

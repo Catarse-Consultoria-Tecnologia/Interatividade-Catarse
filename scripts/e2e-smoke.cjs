@@ -54,7 +54,11 @@ async function main() {
   try {
     log("Professor cria sala");
     await prof.goto(`${BASE_URL}/professor/novo`);
-    await prof.getByRole("button", { name: "Criar sala" }).click();
+    // A lista de jogos publicados tem mais de um jogo — escolhe o card da Operação SFN.
+    await prof
+      .locator(".dossier-card", { hasText: "Operação SFN" })
+      .getByRole("button", { name: "Criar sala" })
+      .click();
     await prof.waitForURL(/\/professor\/[A-Z0-9]+$/, { timeout: 15000 });
     const code = prof.url().split("/").pop();
     console.log("Código da sala:", code);

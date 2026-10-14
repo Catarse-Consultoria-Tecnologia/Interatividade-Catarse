@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { seedOperacaoSFN } from "../../../../../prisma/seed-operacao-sfn";
+import { seedModulo3Processos } from "../../../../../prisma/seed-modulo3-processos";
 
 // Popula/repopula o conteúdo do jogo em produção. Existe porque o passo de build da
 // Vercel só roda `prisma migrate deploy` (schema), não `prisma db seed` (conteúdo) — e
@@ -21,8 +22,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await seedOperacaoSFN(prisma);
-    return NextResponse.json({ ok: true, result });
+    const sfn = await seedOperacaoSFN(prisma);
+    const modulo3 = await seedModulo3Processos(prisma);
+    return NextResponse.json({ ok: true, result: { sfn, modulo3 } });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);

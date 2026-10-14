@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { seedOperacaoSFN } from "./seed-operacao-sfn";
+import { seedModulo3Processos } from "./seed-modulo3-processos";
 
 const prisma = new PrismaClient();
 
@@ -12,6 +13,11 @@ async function main() {
   console.log(`  - ${result.evidences} evidências`);
   console.log(`  - 1 cenário (${result.scenarioTitle}) com 4 documentos e 6 linhas de matriz`);
   console.log(`  - ${result.badges} distintivos`);
+
+  console.log("\nPopulando Operação Processos — Pessoas, Processos e Eventos...");
+  const result2 = await seedModulo3Processos(prisma);
+  console.log(`Concluído. Jogo "${result2.gameName}" (${result2.gameId}) pronto com:`);
+  console.log(`  - ${result2.pollQuestions} perguntas na rodada de enquete (Rodada 1)`);
 }
 
 main()

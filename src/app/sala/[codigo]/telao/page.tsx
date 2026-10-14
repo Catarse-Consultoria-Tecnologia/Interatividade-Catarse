@@ -4,8 +4,8 @@ import { useParams } from "next/navigation";
 import { Timer } from "@/components/ui/Timer";
 import { RoomQRCode } from "@/components/ui/RoomQRCode";
 import { DistributionPanel } from "@/components/game/DistributionPanel";
+import { PollDistributionPanel } from "@/components/game/PollDistributionPanel";
 import { useViewerSession } from "@/hooks/useViewerSession";
-import { ROUND_LABELS, type RoundKey } from "@/types/realtime";
 
 export default function TelaoPage() {
   const params = useParams<{ codigo: string }>();
@@ -39,14 +39,16 @@ export default function TelaoPage() {
             {room.currentRound > 0 && (
               <p className="text-lg font-semibold text-paper-300/80">
                 Rodada {room.currentRound} de {room.totalRounds} ·{" "}
-                {ROUND_LABELS[room.currentRound as RoundKey]}
+                {room.game.rounds[room.currentRound - 1]?.label ?? ""}
               </p>
             )}
             <Timer endsAt={room.roundTimerEndsAt} className="!text-base" />
           </div>
         </header>
 
-        {room.status === "LOBBY" && <LobbyView code={room.code} count={room.participantCount} />}
+        {room.status === "LOBBY" && (
+          <LobbyView code={room.code} count={room.participantCount} gameName={room.game.name} />
+        )}
 
         {room.status === "BRIEFING" && (
           <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -58,28 +60,56 @@ export default function TelaoPage() {
 
         {room.status !== "LOBBY" && room.status !== "BRIEFING" && room.status !== "FINAL" && room.status !== "CLOSED" && (
           <div className="flex-1 space-y-5">
-            {room.currentRound <= 2 ? (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {room.game.zones.map((zone) => (
-                  <div key={zone.id} className="cork-panel p-4">
-                    <h2 className="font-display text-lg font-bold text-paper-50">{zone.name}</h2>
-                    <p className="text-xs text-paper-300/60">{zone.subtitle}</p>
+            {(() => {
+              const round = room.game.rounds[room.currentRound - 1];
+              if (round?.kind === "PLACEMENT") {
+                return (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {room.game.zones.map((zone) => (
+                      <div key={zone.id} className="cork-panel p-4">
+                        <h2 className="font-display text-lg font-bold text-paper-50">{zone.name}</h2>
+                        <p className="text-xs text-paper-300/60">{zone.subtitle}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <p className="font-display text-2xl text-paper-300/70">
-                  {room.participantCount} investigadores trabalhando em{" "}
-                  {room.currentRound === 3 ? "Associação de Evidências" : "Dossiê #002 — Nubank"}…
-                </p>
-              </div>
-            )}
+                );
+              }
+              if (round?.kind === "POLL") {
+                return (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+                    {round.intro && (
+                      <p className="max-w-2xl text-lg font-semibold text-paper-50">{round.intro}</p>
+                    )}
+                    <p className="font-display text-2xl text-paper-300/70">
+                      {room.participantCount} investigadores respondendo…
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="flex flex-1 items-center justify-center">
+                  <p className="font-display text-2xl text-paper-300/70">
+                    {room.participantCount} investigadores trabalhando em{" "}
+                    {round?.kind === "EVIDENCE_MATCH"
+                      ? "Associação de Evidências"
+                      : room.game.scenario?.title ?? "Dossiê"}
+                    …
+                  </p>
+                </div>
+              );
+            })()}
 
-            {room.distribution && (
+            {room.distribution && room.distribution.length > 0 && (
               <div className="cork-panel p-4">
                 <p className="label-eyebrow mb-2.5 text-base">Progresso coletivo</p>
                 <DistributionPanel distribution={room.distribution} cards={room.game.cards} zones={room.game.zones} />
+              </div>
+            )}
+
+            {room.pollDistribution && room.pollDistribution.length > 0 && (
+              <div className="cork-panel p-4">
+                <p className="label-eyebrow mb-2.5 text-base">Progresso coletivo</p>
+                <PollDistributionPanel distribution={room.pollDistribution} questions={room.game.pollQuestions} />
               </div>
             )}
           </div>
@@ -91,12 +121,12 @@ export default function TelaoPage() {
   );
 }
 
-function LobbyView({ code, count }: { code: string; count: number }) {
+function LobbyView({ code, count, gameName }: { code: string; count: number; gameName: string }) {
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
       <p className="label-eyebrow text-base">O sistema foi embaralhado</p>
-      <h1 className="font-display text-5xl font-black text-paper-50">OPERAÇÃO SFN</h1>
+      <h1 className="font-display text-5xl font-black uppercase text-paper-50">{gameName}</h1>
       <p className="text-lg text-paper-300/80">Sua missão é reconstruir o mapa.</p>
       <RoomQRCode url={`${appUrl}/sala/${code}`} />
       <p className="font-mono text-3xl font-bold tracking-[0.3em] text-gold-500">{code}</p>

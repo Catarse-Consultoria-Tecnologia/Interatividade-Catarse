@@ -38,14 +38,35 @@ model Game {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  zones     Zone[]
-  cards     Card[]
-  evidences Evidence[]
-  scenarios Scenario[]
-  badges    Badge[]
-  sessions  Session[]
+  // As três listas abaixo descrevem as rodadas do jogo, uma posição por rodada (índice 0 =
+  // rodada 1 etc.) — sempre do mesmo tamanho. `roundKinds` diz qual mecânica a rodada usa
+  // (motor genérico, EF-01 §44); `roundLabels` é o texto curto mostrado no cabeçalho/telão;
+  // `roundIntros` é um texto de abertura opcional da rodada ("" quando não há um), usado
+  // hoje pela situação de uma rodada POLL.
+  roundKinds  RoundKind[]
+  roundLabels String[]
+  roundIntros String[]
+
+  zones         Zone[]
+  cards         Card[]
+  evidences     Evidence[]
+  scenarios     Scenario[]
+  badges        Badge[]
+  sessions      Session[]
+  pollQuestions PollQuestion[]
 
   @@map("games")
+}
+
+// Mecânica de uma rodada (EF-01 §44, motor genérico): PLACEMENT é o tabuleiro de zonas
+// (Rodadas 1/2 da Operação SFN), EVIDENCE_MATCH é o jogo de associação em grupos (Rodada 3),
+// SCENARIO é o dossiê com matriz de respostas fechadas (Rodada 4), POLL é uma enquete ao
+// vivo de múltipla escolha, sem gabarito — a distribuição de respostas é o próprio resultado.
+enum RoundKind {
+  PLACEMENT
+  EVIDENCE_MATCH
+  SCENARIO
+  POLL
 }
 
 model Zone {
@@ -205,6 +226,44 @@ model ScenarioItem {
   @@map("scenario_items")
 }
 
+// Pergunta de uma rodada POLL (ex.: "Alguém sabe quais são as prioridades?"). `round` é o
+// número da rodada a que pertence (um Game pode ter mais de uma rodada POLL ao longo do
+// tempo); `options` são as alternativas fechadas (ex.: ["SIM", "NÃO", "DEPENDE"]).
+model PollQuestion {
+  id      String   @id @default(cuid())
+  gameId  String
+  round   Int
+  order   Int
+  key     String
+  prompt  String
+  options String[]
+
+  game      Game           @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  responses PollResponse[]
+
+  @@unique([gameId, key])
+  @@map("poll_questions")
+}
+
+// Voto de um participante numa PollQuestion. Sem gabarito: `choice` só alimenta a
+// distribuição ao vivo, nunca é avaliado como certo/errado.
+model PollResponse {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  questionId    String
+  choice        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  session     Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question    PollQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, participantId, questionId])
+  @@map("poll_responses")
+}
+
 model Badge {
   id          String @id @default(cuid())
   gameId      String
@@ -258,6 +317,7 @@ model Session {
   releasedClues        SessionClue[]
   evidenceAssociations EvidenceAssociation[]
   scenarioResponses    ScenarioResponse[]
+  pollResponses        PollResponse[]
   scoreEntries         ScoreEntry[]
   awardedBadges        ParticipantBadge[]
   events               SessionEvent[]
@@ -279,6 +339,7 @@ model Participant {
   placements           Placement[]
   evidenceAssociations EvidenceAssociation[]
   scenarioResponses    ScenarioResponse[]
+  pollResponses        PollResponse[]
   scoreEntries         ScoreEntry[]
   badges               ParticipantBadge[]
   events               SessionEvent[]
@@ -424,6 +485,7 @@ enum SessionEventType {
   CLUE_RELEASED
   EVIDENCE_ASSOCIATED
   SCENARIO_RESPONSE_SAVED
+  POLL_VOTED
   ROUND_FROZEN
   ROUND_RESUMED
   ROUND_REVEALED

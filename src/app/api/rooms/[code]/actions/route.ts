@@ -6,6 +6,7 @@ import {
   placeCard,
   respondScenarioItem,
   runProfessorAction,
+  votePoll,
 } from "@/lib/game-engine/session-service";
 import type { ProfessorActionType } from "@/types/realtime";
 import { broadcastAfterParticipantAction, broadcastAfterProfessorAction } from "@/lib/realtime/broadcast";
@@ -33,6 +34,12 @@ const bodySchema = z.discriminatedUnion("type", [
     evidenceKey: z.string().max(80).nullish(),
     markedInsufficient: z.boolean().optional(),
     justification: z.string().max(500).optional(),
+  }),
+  z.object({
+    type: z.literal("VOTE_POLL"),
+    token: z.string().min(1),
+    questionId: z.string().min(1),
+    choice: z.string().min(1).max(40),
   }),
   z.object({
     type: z.literal("PROFESSOR_ACTION"),
@@ -79,6 +86,11 @@ export async function POST(request: Request, { params }: { params: { code: strin
           markedInsufficient: data.markedInsufficient,
           justification: data.justification,
         });
+        await broadcastAfterParticipantAction(code, data.token);
+        break;
+      }
+      case "VOTE_POLL": {
+        await votePoll(code, data.token, data.questionId, data.choice);
         await broadcastAfterParticipantAction(code, data.token);
         break;
       }

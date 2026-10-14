@@ -1,6 +1,5 @@
 import clsx from "clsx";
-import type { RoundKey } from "@/types/realtime";
-import { ROUND_LABELS } from "@/types/realtime";
+import type { RoundMetaDTO } from "@/types/realtime";
 
 const STATUS_LABEL: Record<string, string> = {
   CREATED: "Preparando",
@@ -19,6 +18,7 @@ export function RoomHeader({
   code,
   status,
   round,
+  rounds,
   totalRounds,
   participantCount,
   right,
@@ -26,7 +26,8 @@ export function RoomHeader({
   gameName: string;
   code: string;
   status: string;
-  round: RoundKey | 0;
+  round: number;
+  rounds: RoundMetaDTO[];
   totalRounds: number;
   participantCount?: number;
   right?: React.ReactNode;
@@ -52,7 +53,7 @@ export function RoomHeader({
             </span>
             {round > 0 && (
               <span className="text-xs font-medium text-paper-300/70">
-                Rodada {round} de {totalRounds} · {ROUND_LABELS[round as RoundKey]}
+                Rodada {round} de {totalRounds} · {rounds[round - 1]?.label ?? ""}
               </span>
             )}
             {typeof participantCount === "number" && (
