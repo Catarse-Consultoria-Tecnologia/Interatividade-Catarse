@@ -19,7 +19,7 @@ export function getStoredParticipantToken(code: string): string | null {
   }
 }
 
-function storeParticipantToken(code: string, token: string) {
+export function storeParticipantToken(code: string, token: string) {
   try {
     window.localStorage.setItem(tokenKey(code), token);
   } catch {

@@ -9,6 +9,8 @@ export type SessionStatus =
   | "ROUND_FROZEN"
   | "REVEAL"
   | "NEXT_ROUND"
+  // Sessão de jogo autoguiado (sem rodadas em lockstep) em andamento — ver Operação Gênesis.
+  | "ACTIVE"
   | "FINAL"
   | "CLOSED";
 

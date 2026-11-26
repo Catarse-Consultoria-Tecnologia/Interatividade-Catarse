@@ -15,6 +15,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed:genesis": "tsx prisma/seed-genesis.ts",
     "db:push": "prisma db push",
     "test:e2e": "node scripts/e2e-smoke.cjs",
     "test:e2e:reconnect": "node scripts/e2e-reconnect.cjs"

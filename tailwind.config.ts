@@ -45,11 +45,28 @@ const config: Config = {
           900: "#1a1508",
           700: "#3c3421",
         },
+        // Identidade visual "Fechamento Mensal Folha", reaproveitada para a Operação
+        // Gênesis e módulos futuros — usar SÓ nas rotas novas (/genesis/*), nunca nos
+        // jogos de "sala de investigação" já existentes (Operação SFN e similares).
+        "azul-institucional": "#0d2137",
+        "azul-tecnico": "#1565a0",
+        teal: "#0e6b7f",
+        ambar: "#e8a020",
+        "ambar-claro": "#fcc94e",
+        "off-white": "#f8f9fb",
+        "cinza-calido": "#f0f2f5",
+        texto: "#1a1f2e",
+        "texto-secundario": "#4d5568",
+        borda: "#dde2ea",
       },
       fontFamily: {
         display: ["var(--font-display)", "serif"],
         sans: ["var(--font-sans)", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
+        jakarta: ["var(--font-jakarta)", "system-ui", "sans-serif"],
+      },
+      borderRadius: {
+        card: "18px",
       },
       backgroundImage: {
         cork: "radial-gradient(circle at 20% 20%, rgba(230, 185, 61, 0.06), transparent 45%), radial-gradient(circle at 80% 60%, rgba(47, 183, 148, 0.05), transparent 40%)",

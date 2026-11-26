@@ -45,6 +45,13 @@ export default async function HomePage() {
             >
               Sou professor — criar uma sala
             </Link>
+
+            <Link
+              href="/genesis"
+              className="btn-secondary block w-full text-center"
+            >
+              Módulo 4 — Operação Gênesis ↗
+            </Link>
           </div>
         </div>
       </div>
