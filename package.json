@@ -5,6 +5,7 @@
   "description": "Plataforma de interatividade Catarse — motor de jogos/dinâmicas pedagógicas multiplayer.",
   "scripts": {
     "dev": "tsx watch server.ts",
+    "postinstall": "prisma generate",
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx server.ts",
     "lint": "next lint",
