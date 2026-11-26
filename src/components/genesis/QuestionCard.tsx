@@ -11,16 +11,31 @@ export function QuestionCard({
 }: {
   question: GenesisQuestionDTO;
   index: number;
-  onAnswer: (optionId: string) => Promise<void>;
+  onAnswer: (input: { optionId?: string; answerText?: string }) => Promise<void>;
+}) {
+  if (question.type === "OPEN_TEXT") {
+    return <OpenTextQuestionCard question={question} index={index} onAnswer={onAnswer} />;
+  }
+  return <MultipleChoiceQuestionCard question={question} index={index} onAnswer={onAnswer} />;
+}
+
+function MultipleChoiceQuestionCard({
+  question,
+  index,
+  onAnswer,
+}: {
+  question: GenesisQuestionDTO;
+  index: number;
+  onAnswer: (input: { optionId?: string; answerText?: string }) => Promise<void>;
 }) {
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const answered = question.answer;
+  const answered = question.answer?.type === "MULTIPLE_CHOICE" ? question.answer : null;
 
   async function handlePick(optionId: string) {
     if (answered || submitting) return;
     setSubmitting(optionId);
     try {
-      await onAnswer(optionId);
+      await onAnswer({ optionId });
     } finally {
       setSubmitting(null);
     }
@@ -79,6 +94,75 @@ export function QuestionCard({
           <p className="mt-1 text-texto-secundario">{answered.explanation}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function OpenTextQuestionCard({
+  question,
+  index,
+  onAnswer,
+}: {
+  question: GenesisQuestionDTO;
+  index: number;
+  onAnswer: (input: { optionId?: string; answerText?: string }) => Promise<void>;
+}) {
+  const answered = question.answer?.type === "OPEN_TEXT" ? question.answer : null;
+  const [draft, setDraft] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    const text = draft.trim();
+    if (!text || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAnswer({ answerText: text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-card border border-borda bg-white p-5">
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">Questão {index}</p>
+        <span className="rounded-full bg-azul-tecnico/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-azul-tecnico">
+          Resposta livre
+        </span>
+      </div>
+      <p className="mt-1 text-sm font-semibold text-texto">{question.prompt}</p>
+
+      {answered ? (
+        <div className="mt-4 rounded-lg border border-borda bg-cinza-calido px-3.5 py-3 text-sm text-texto">
+          <p className="whitespace-pre-line">{answered.text}</p>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            disabled={submitting}
+            rows={5}
+            maxLength={4000}
+            placeholder="Escreva sua resposta aqui…"
+            className="w-full rounded-lg border border-borda bg-white px-3.5 py-2.5 text-sm text-texto outline-none focus:border-azul-tecnico disabled:opacity-60"
+          />
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!draft.trim() || submitting}
+            className="self-end rounded-lg bg-azul-tecnico px-4 py-2 text-sm font-semibold text-white transition hover:bg-azul-tecnico/90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting ? "Enviando…" : "Enviar resposta"}
+          </button>
+        </div>
+      )}
+
+      <div className="mt-3 rounded-lg bg-cinza-calido/60 px-3.5 py-2.5 text-xs text-texto-secundario">
+        {answered
+          ? "Resposta registrada — o professor vai avaliar manualmente."
+          : "Esta questão não tem gabarito automático: o professor lê sua resposta depois."}
+      </div>
     </div>
   );
 }

@@ -51,12 +51,20 @@ async function answeredCountByStage(sessionId: string, participantId: string): P
   return counts;
 }
 
+export type GenesisQuestionType = "MULTIPLE_CHOICE" | "OPEN_TEXT";
+
+export type GenesisQuestionAnswerDTO =
+  | { type: "MULTIPLE_CHOICE"; optionId: string; isCorrect: boolean; correctOptionId: string; explanation: string }
+  | { type: "OPEN_TEXT"; text: string };
+
 export interface GenesisQuestionDTO {
   id: string;
   order: number;
+  type: GenesisQuestionType;
   prompt: string;
+  // Vazio para questões OPEN_TEXT (sem alternativas).
   options: { id: string; order: number; text: string }[];
-  answer: { optionId: string; isCorrect: boolean; correctOptionId: string; explanation: string } | null;
+  answer: GenesisQuestionAnswerDTO | null;
 }
 
 export interface GenesisStageDTO {
@@ -84,10 +92,16 @@ export interface GenesisStudentStateDTO {
   stages: GenesisStageDTO[];
 }
 
+interface GivenAnswer {
+  optionId: string | null;
+  isCorrect: boolean | null;
+  answerText: string | null;
+}
+
 function buildStageDTOs(
   content: GenesisContent,
   answeredByStage: Map<string, number>,
-  answersByQuestion: Map<string, { optionId: string; isCorrect: boolean }>,
+  answersByQuestion: Map<string, GivenAnswer>,
 ): GenesisStageDTO[] {
   let previousCompleted = true;
   return content.genesisStages.map((stage) => {
@@ -110,20 +124,28 @@ function buildStageDTOs(
       totalQuestions: stage.questions.length,
       questions: stage.questions.map((question) => {
         const given = answersByQuestion.get(question.id);
-        const correctOption = question.options.find((o) => o.isCorrect);
+        let answer: GenesisQuestionAnswerDTO | null = null;
+        if (given) {
+          if (question.type === "OPEN_TEXT") {
+            answer = { type: "OPEN_TEXT", text: given.answerText ?? "" };
+          } else {
+            const correctOption = question.options.find((o) => o.isCorrect);
+            answer = {
+              type: "MULTIPLE_CHOICE",
+              optionId: given.optionId ?? "",
+              isCorrect: given.isCorrect ?? false,
+              correctOptionId: correctOption?.id ?? given.optionId ?? "",
+              explanation: question.explanation ?? "",
+            };
+          }
+        }
         return {
           id: question.id,
           order: question.order,
+          type: question.type,
           prompt: question.prompt,
           options: question.options.map((o) => ({ id: o.id, order: o.order, text: o.text })),
-          answer: given
-            ? {
-                optionId: given.optionId,
-                isCorrect: given.isCorrect,
-                correctOptionId: correctOption?.id ?? given.optionId,
-                explanation: question.explanation,
-              }
-            : null,
+          answer,
         };
       }),
     };
@@ -143,8 +165,8 @@ export async function buildGenesisStudentState(code: string, token: string): Pro
   const rawAnswers = await prisma.genesisAnswer.findMany({
     where: { sessionId: session.id, participantId: participant.id },
   });
-  const answersByQuestion = new Map(
-    rawAnswers.map((a) => [a.questionId, { optionId: a.optionId, isCorrect: a.isCorrect }]),
+  const answersByQuestion = new Map<string, GivenAnswer>(
+    rawAnswers.map((a) => [a.questionId, { optionId: a.optionId, isCorrect: a.isCorrect, answerText: a.answerText }]),
   );
 
   return {
@@ -158,18 +180,29 @@ export async function buildGenesisStudentState(code: string, token: string): Pro
   };
 }
 
-export interface GenesisAnswerResultDTO {
-  isCorrect: boolean;
-  correctOptionId: string;
-  explanation: string;
-  stageCompleted: boolean;
+export type GenesisAnswerResultDTO =
+  | {
+      type: "MULTIPLE_CHOICE";
+      isCorrect: boolean;
+      correctOptionId: string;
+      explanation: string;
+      stageCompleted: boolean;
+    }
+  | { type: "OPEN_TEXT"; text: string; stageCompleted: boolean };
+
+export interface GenesisAnswerInput {
+  // Exatamente um dos dois, conforme o tipo da questão.
+  optionId?: string;
+  answerText?: string;
 }
+
+const OPEN_TEXT_MAX_LENGTH = 4000;
 
 export async function submitGenesisAnswer(
   code: string,
   token: string,
   questionId: string,
-  optionId: string,
+  input: GenesisAnswerInput,
 ): Promise<GenesisAnswerResultDTO> {
   const session = await requireSession(code);
   if (session.status !== "ACTIVE") {
@@ -180,9 +213,8 @@ export async function submitGenesisAnswer(
   const content = await loadGenesisContentById(session.gameId);
   const stage = content.genesisStages.find((s) => s.questions.some((q) => q.id === questionId));
   const question = stage?.questions.find((q) => q.id === questionId);
-  const option = question?.options.find((o) => o.id === optionId);
-  if (!stage || !question || !option) {
-    throw new GameServiceError("Questão ou opção inválida.", "BAD_REQUEST");
+  if (!stage || !question) {
+    throw new GameServiceError("Questão inválida.", "BAD_REQUEST");
   }
 
   const answeredByStage = await answeredCountByStage(session.id, participant.id);
@@ -201,45 +233,74 @@ export async function submitGenesisAnswer(
   const existing = await prisma.genesisAnswer.findUnique({
     where: { sessionId_participantId_questionId: { sessionId: session.id, participantId: participant.id, questionId } },
   });
+  const stageCompleted = (answeredByStage.get(stage.id) ?? 0) + (existing ? 0 : 1) >= stage.questions.length;
+
+  if (question.type === "OPEN_TEXT") {
+    if (existing) {
+      return { type: "OPEN_TEXT", text: existing.answerText ?? "", stageCompleted };
+    }
+    const text = (input.answerText ?? "").trim();
+    if (!text) {
+      throw new GameServiceError("Escreva uma resposta antes de enviar.", "BAD_REQUEST");
+    }
+    if (text.length > OPEN_TEXT_MAX_LENGTH) {
+      throw new GameServiceError("Resposta muito longa.", "BAD_REQUEST");
+    }
+
+    await prisma.genesisAnswer.create({
+      data: { sessionId: session.id, participantId: participant.id, questionId, answerText: text },
+    });
+    await recordAnswerEvents(session.id, participant.id, stage, question.order, stageCompleted, null);
+    return { type: "OPEN_TEXT", text, stageCompleted };
+  }
+
+  const option = question.options.find((o) => o.id === input.optionId);
+  if (!option) {
+    throw new GameServiceError("Opção inválida.", "BAD_REQUEST");
+  }
   const correctOption = question.options.find((o) => o.isCorrect);
   const correctOptionId = correctOption?.id ?? option.id;
 
   if (existing) {
     return {
-      isCorrect: existing.isCorrect,
+      type: "MULTIPLE_CHOICE",
+      isCorrect: existing.isCorrect ?? false,
       correctOptionId,
-      explanation: question.explanation,
-      stageCompleted: (answeredByStage.get(stage.id) ?? 0) >= stage.questions.length,
+      explanation: question.explanation ?? "",
+      stageCompleted,
     };
   }
 
   const isCorrect = option.isCorrect;
   await prisma.genesisAnswer.create({
-    data: { sessionId: session.id, participantId: participant.id, questionId, optionId, isCorrect },
+    data: { sessionId: session.id, participantId: participant.id, questionId, optionId: option.id, isCorrect },
   });
+  await recordAnswerEvents(session.id, participant.id, stage, question.order, stageCompleted, isCorrect);
+
+  return { type: "MULTIPLE_CHOICE", isCorrect, correctOptionId, explanation: question.explanation ?? "", stageCompleted };
+}
+
+async function recordAnswerEvents(
+  sessionId: string,
+  participantId: string,
+  stage: { id: string; key: string },
+  questionOrder: number,
+  stageCompleted: boolean,
+  isCorrect: boolean | null,
+): Promise<void> {
   await prisma.sessionEvent.create({
     data: {
-      sessionId: session.id,
+      sessionId,
       type: "GENESIS_ANSWER_SUBMITTED",
-      participantId: participant.id,
-      payload: { stageKey: stage.key, questionOrder: question.order, isCorrect },
+      participantId,
+      payload: { stageKey: stage.key, questionOrder, isCorrect },
     },
   });
-
-  const newAnsweredCount = (answeredByStage.get(stage.id) ?? 0) + 1;
-  const stageCompleted = newAnsweredCount >= stage.questions.length;
   if (stageCompleted) {
     await prisma.sessionEvent.create({
-      data: {
-        sessionId: session.id,
-        type: "GENESIS_STAGE_COMPLETED",
-        participantId: participant.id,
-        payload: { stageKey: stage.key },
-      },
+      data: { sessionId, type: "GENESIS_STAGE_COMPLETED", participantId, payload: { stageKey: stage.key } },
     });
   }
-
-  return { isCorrect, correctOptionId, explanation: question.explanation, stageCompleted };
 }
 
 // ---------------------------------------------------------------------------
@@ -261,6 +322,23 @@ export interface GenesisAttentionPointDTO {
   wrongRate: number;
 }
 
+// Resposta de texto livre ("traduza o script") de um aluno — não tem gabarito,
+// fica aqui só para leitura manual do professor.
+export interface GenesisOpenAnswerDTO {
+  participantId: string;
+  participantName: string;
+  questionOrder: number;
+  prompt: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface GenesisOpenAnswerStageGroupDTO {
+  stageKey: string;
+  stageTitle: string;
+  answers: GenesisOpenAnswerDTO[];
+}
+
 export interface GenesisProfessorStateDTO {
   code: string;
   hostToken: string;
@@ -270,6 +348,7 @@ export interface GenesisProfessorStateDTO {
   gameDescription: string;
   participants: GenesisParticipantRowDTO[];
   attentionPoints: GenesisAttentionPointDTO[];
+  openAnswersByStage: GenesisOpenAnswerStageGroupDTO[];
 }
 
 export async function buildGenesisProfessorState(code: string, hostToken: string): Promise<GenesisProfessorStateDTO> {
@@ -280,10 +359,12 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
     where: { sessionId: session.id, removed: false },
     orderBy: { joinedAt: "asc" },
   });
+  const participantNameById = new Map(participants.map((p) => [p.id, p.name]));
 
   const allAnswers = await prisma.genesisAnswer.findMany({
     where: { sessionId: session.id },
-    include: { question: { select: { id: true, stageId: true, order: true, prompt: true } } },
+    include: { question: { select: { id: true, stageId: true, order: true, prompt: true, type: true } } },
+    orderBy: { createdAt: "asc" },
   });
 
   const answersByParticipant = new Map<string, typeof allAnswers>();
@@ -295,11 +376,16 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
 
   const participantRows: GenesisParticipantRowDTO[] = participants.map((participant) => {
     const answers = answersByParticipant.get(participant.id) ?? [];
-    const byStage = new Map<string, { correct: number; total: number }>();
+    // total conta todo tipo de questão (gating de "completed"); mc conta só
+    // MULTIPLE_CHOICE, única base válida para percentCorrect.
+    const byStage = new Map<string, { total: number; mcCorrect: number; mcTotal: number }>();
     for (const answer of answers) {
-      const stats = byStage.get(answer.question.stageId) ?? { correct: 0, total: 0 };
+      const stats = byStage.get(answer.question.stageId) ?? { total: 0, mcCorrect: 0, mcTotal: 0 };
       stats.total += 1;
-      if (answer.isCorrect) stats.correct += 1;
+      if (answer.question.type === "MULTIPLE_CHOICE") {
+        stats.mcTotal += 1;
+        if (answer.isCorrect) stats.mcCorrect += 1;
+      }
       byStage.set(answer.question.stageId, stats);
     }
     return {
@@ -311,7 +397,7 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
         return {
           stageKey: stage.key,
           stageTitle: stage.title,
-          percentCorrect: stats && stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : null,
+          percentCorrect: stats && stats.mcTotal > 0 ? Math.round((stats.mcCorrect / stats.mcTotal) * 100) : null,
           completed: (stats?.total ?? 0) >= stage.questions.length,
         };
       }),
@@ -319,7 +405,23 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
   });
 
   const byQuestion = new Map<string, { correct: number; total: number }>();
+  const openAnswersByStageKey = new Map<string, GenesisOpenAnswerDTO[]>();
   for (const answer of allAnswers) {
+    if (answer.question.type === "OPEN_TEXT") {
+      const stage = content.genesisStages.find((s) => s.id === answer.question.stageId);
+      if (!stage) continue;
+      const list = openAnswersByStageKey.get(stage.key) ?? [];
+      list.push({
+        participantId: answer.participantId,
+        participantName: participantNameById.get(answer.participantId) ?? "Aluno removido",
+        questionOrder: answer.question.order,
+        prompt: answer.question.prompt,
+        text: answer.answerText ?? "",
+        createdAt: answer.createdAt.toISOString(),
+      });
+      openAnswersByStageKey.set(stage.key, list);
+      continue;
+    }
     const stats = byQuestion.get(answer.questionId) ?? { correct: 0, total: 0 };
     stats.total += 1;
     if (answer.isCorrect) stats.correct += 1;
@@ -329,6 +431,7 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
   const attentionPoints: GenesisAttentionPointDTO[] = [];
   for (const stage of content.genesisStages) {
     for (const question of stage.questions) {
+      if (question.type !== "MULTIPLE_CHOICE") continue;
       const stats = byQuestion.get(question.id);
       if (!stats || stats.total < ATTENTION_MIN_ANSWERS) continue;
       const wrongRate = 1 - stats.correct / stats.total;
@@ -345,6 +448,14 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
   }
   attentionPoints.sort((a, b) => b.wrongRate - a.wrongRate);
 
+  const openAnswersByStage: GenesisOpenAnswerStageGroupDTO[] = content.genesisStages
+    .filter((stage) => openAnswersByStageKey.has(stage.key))
+    .map((stage) => ({
+      stageKey: stage.key,
+      stageTitle: stage.title,
+      answers: openAnswersByStageKey.get(stage.key) ?? [],
+    }));
+
   return {
     code: session.code,
     hostToken: session.hostToken,
@@ -354,6 +465,7 @@ export async function buildGenesisProfessorState(code: string, hostToken: string
     gameDescription: content.description,
     participants: participantRows,
     attentionPoints,
+    openAnswersByStage,
   };
 }
 

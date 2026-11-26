@@ -67,6 +67,44 @@ function StagePercentBadge({ percentCorrect, completed }: { percentCorrect: numb
   );
 }
 
+export function OpenAnswersPanel({ state }: { state: GenesisProfessorStateDTO }) {
+  if (state.openAnswersByStage.length === 0) {
+    return (
+      <div className="rounded-card border border-borda bg-white p-6 text-center text-sm text-texto-secundario shadow-sm">
+        Nenhuma resposta de texto livre registrada ainda.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {state.openAnswersByStage.map((group) => (
+        <div key={group.stageKey}>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-texto-secundario">
+            {group.stageTitle}
+          </p>
+          <div className="flex flex-col gap-3">
+            {group.answers.map((answer, i) => (
+              <div key={i} className="rounded-card border border-borda bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-semibold text-texto">{answer.participantName}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-texto-secundario">
+                    Questão {answer.questionOrder}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-texto-secundario">{answer.prompt}</p>
+                <p className="mt-2 whitespace-pre-line rounded-lg bg-cinza-calido px-3.5 py-2.5 text-sm text-texto">
+                  {answer.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AttentionPointsPanel({ state }: { state: GenesisProfessorStateDTO }) {
   if (state.attentionPoints.length === 0) {
     return (

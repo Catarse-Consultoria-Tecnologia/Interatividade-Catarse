@@ -7,7 +7,7 @@ export function StageView({
   onAnswer,
 }: {
   stage: GenesisStageDTO;
-  onAnswer: (questionId: string, optionId: string) => Promise<void>;
+  onAnswer: (questionId: string, input: { optionId?: string; answerText?: string }) => Promise<void>;
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -48,7 +48,7 @@ export function StageView({
             key={question.id}
             question={question}
             index={idx + 1}
-            onAnswer={(optionId) => onAnswer(question.id, optionId)}
+            onAnswer={(input) => onAnswer(question.id, input)}
           />
         ))}
       </div>

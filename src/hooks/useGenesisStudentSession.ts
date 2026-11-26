@@ -71,7 +71,10 @@ export function useGenesisStudentSession(code: string) {
   }, [joinStatus, fetchState]);
 
   const submitAnswer = useCallback(
-    async (questionId: string, optionId: string): Promise<GenesisAnswerResultDTO | null> => {
+    async (
+      questionId: string,
+      input: { optionId?: string; answerText?: string },
+    ): Promise<GenesisAnswerResultDTO | null> => {
       const token = tokenRef.current;
       if (!token) return null;
       setActionError(null);
@@ -79,7 +82,7 @@ export function useGenesisStudentSession(code: string) {
         const res = await fetch("/api/genesis/answer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, token, questionId, optionId }),
+          body: JSON.stringify({ code, token, questionId, ...input }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message ?? "Não foi possível registrar a resposta.");

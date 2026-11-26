@@ -103,7 +103,7 @@ export default function GenesisSalaPage() {
           {actionError}
         </div>
       )}
-      <StageView stage={activeStage} onAnswer={(questionId, optionId) => submitAnswer(questionId, optionId).then(() => undefined)} />
+      <StageView stage={activeStage} onAnswer={(questionId, input) => submitAnswer(questionId, input).then(() => undefined)} />
     </GenesisShell>
   );
 }

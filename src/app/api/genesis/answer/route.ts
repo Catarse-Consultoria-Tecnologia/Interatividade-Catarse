@@ -6,7 +6,8 @@ const bodySchema = z.object({
   code: z.string().trim().min(1).max(12),
   token: z.string().trim().min(1),
   questionId: z.string().trim().min(1),
-  optionId: z.string().trim().min(1),
+  optionId: z.string().trim().min(1).optional(),
+  answerText: z.string().trim().min(1).max(4000).optional(),
 });
 
 export async function POST(request: Request) {
@@ -23,12 +24,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await submitGenesisAnswer(
-      parsed.data.code,
-      parsed.data.token,
-      parsed.data.questionId,
-      parsed.data.optionId,
-    );
+    const result = await submitGenesisAnswer(parsed.data.code, parsed.data.token, parsed.data.questionId, {
+      optionId: parsed.data.optionId,
+      answerText: parsed.data.answerText,
+    });
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof GameServiceError) {

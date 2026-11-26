@@ -472,13 +472,24 @@ model GenesisStage {
   @@map("genesis_stages")
 }
 
+// MULTIPLE_CHOICE: corrigida automaticamente contra GenesisOption.isCorrect.
+// OPEN_TEXT ("traduza o script"): sem opções, sem correção automática — só
+// registra o texto do aluno para leitura manual do professor (ver
+// GenesisAnswer.answerText e buildGenesisProfessorState/openAnswers).
+enum GenesisQuestionType {
+  MULTIPLE_CHOICE
+  OPEN_TEXT
+}
+
 model GenesisQuestion {
-  id          String @id @default(cuid())
+  id          String              @id @default(cuid())
   stageId     String
   order       Int
+  type        GenesisQuestionType @default(MULTIPLE_CHOICE)
   prompt      String
   // Explicação breve exibida após a resposta (certa ou errada) — fecha o raciocínio da questão.
-  explanation String
+  // Só usada em questões MULTIPLE_CHOICE; OPEN_TEXT não tem gabarito.
+  explanation String?
 
   stage   GenesisStage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
   options GenesisOption[]
@@ -505,19 +516,24 @@ model GenesisOption {
 // Resposta definitiva do participante a uma questão de uma etapa — uma por
 // (sessão, participante, questão); diferente de Placement, não é revisável:
 // o objetivo aqui é medir acerto por etapa, não acompanhar revisão de hipótese.
+// Para questões MULTIPLE_CHOICE: optionId/isCorrect preenchidos, answerText nulo.
+// Para questões OPEN_TEXT ("traduza o script"): answerText preenchido,
+// optionId/isCorrect nulos — não entra na correção automática, só no painel
+// do professor para leitura manual.
 model GenesisAnswer {
   id            String   @id @default(cuid())
   sessionId     String
   participantId String
   questionId    String
-  optionId      String
-  isCorrect     Boolean
+  optionId      String?
+  answerText    String?
+  isCorrect     Boolean?
   createdAt     DateTime @default(now())
 
   session     Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   participant Participant     @relation(fields: [participantId], references: [id], onDelete: Cascade)
   question    GenesisQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  option      GenesisOption   @relation(fields: [optionId], references: [id])
+  option      GenesisOption?  @relation(fields: [optionId], references: [id])
 
   @@unique([sessionId, participantId, questionId])
   @@map("genesis_answers")

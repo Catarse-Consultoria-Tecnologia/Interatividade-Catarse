@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { getStoredHostToken } from "@/hooks/useProfessorSession";
 import { useGenesisProfessorSession } from "@/hooks/useGenesisProfessorSession";
 import { GenesisQRCode } from "@/components/genesis/GenesisQRCode";
-import { ProfessorStudentsTable, AttentionPointsPanel } from "@/components/genesis/ProfessorDashboard";
+import { ProfessorStudentsTable, AttentionPointsPanel, OpenAnswersPanel } from "@/components/genesis/ProfessorDashboard";
 
 export default function GenesisProfessorPage() {
   const params = useParams<{ codigo: string }>();
@@ -110,6 +110,11 @@ export default function GenesisProfessorPage() {
         <div>
           <p className="mb-2 text-sm font-semibold text-texto">Pontos de atenção</p>
           <AttentionPointsPanel state={state} />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-semibold text-texto">Respostas de texto livre (avaliação manual)</p>
+          <OpenAnswersPanel state={state} />
         </div>
       </div>
     </main>
