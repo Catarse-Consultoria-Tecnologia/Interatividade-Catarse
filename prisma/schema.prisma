@@ -33,12 +33,13 @@ model Game {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  zones     Zone[]
-  cards     Card[]
-  evidences Evidence[]
-  scenarios Scenario[]
-  badges    Badge[]
-  sessions  Session[]
+  zones         Zone[]
+  cards         Card[]
+  evidences     Evidence[]
+  scenarios     Scenario[]
+  badges        Badge[]
+  sessions      Session[]
+  genesisStages GenesisStage[]
 
   @@map("games")
 }
@@ -222,6 +223,10 @@ enum SessionStatus {
   ROUND_FROZEN
   REVEAL
   NEXT_ROUND
+  // Sessão de jogo autoguiado (sem rodadas em lockstep de turma) em andamento —
+  // usado por jogos como a Operação Gênesis, em que cada aluno avança em seu
+  // próprio ritmo pelas etapas em vez de seguir rodadas controladas pelo professor.
+  ACTIVE
   FINAL
   CLOSED
 }
@@ -252,6 +257,7 @@ model Session {
   scoreEntries         ScoreEntry[]
   awardedBadges        ParticipantBadge[]
   events               SessionEvent[]
+  genesisAnswers       GenesisAnswer[]
 
   @@map("sessions")
 }
@@ -273,6 +279,7 @@ model Participant {
   scoreEntries         ScoreEntry[]
   badges               ParticipantBadge[]
   events               SessionEvent[]
+  genesisAnswers       GenesisAnswer[]
 
   @@unique([sessionId, token])
   @@map("participants")
@@ -414,6 +421,9 @@ enum SessionEventType {
   SESSION_RESUMED
   SESSION_FINISHED
   SESSION_CLOSED
+  // Eventos específicos de jogos autoguiados por etapas (ex.: Operação Gênesis).
+  GENESIS_ANSWER_SUBMITTED
+  GENESIS_STAGE_COMPLETED
 }
 
 // Linha do tempo/auditoria completa da sessão — alimenta o painel do professor (§15/§16)
@@ -432,4 +442,82 @@ model SessionEvent {
 
   @@index([sessionId, createdAt])
   @@map("session_events")
+}
+
+// ---------------------------------------------------------------------------
+// Operação Gênesis — jogos autoguiados por etapas (DDL/DML/DQL/arquitetura),
+// cada uma com uma rodada fixa de questões de múltipla escolha. Diferente do
+// motor de cartas/zonas acima: aqui o progresso é por aluno (não há rodadas em
+// lockstep de turma controladas pelo professor) — ver SessionStatus.ACTIVE.
+// A métrica de avanço é "respondeu as questões da etapa", não auditoria do SQL
+// que o aluno de fato rodou no Azure (decisão de produto: o portal só entrega a
+// história e os scripts; quem roda o SQL de verdade é o aluno, no VS Code).
+// ---------------------------------------------------------------------------
+
+model GenesisStage {
+  id          String  @id @default(cuid())
+  gameId      String
+  key         String
+  order       Int
+  title       String
+  narrative   String // briefing/história da etapa, exibido antes do script e das questões
+  scriptLabel String? // ex.: "Script entregue pela squad anterior (incompleto)"
+  script      String? // conteúdo (SQL ou texto) que o aluno copia para rodar no Azure; null quando a etapa não tem script
+
+  game      Game              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  questions GenesisQuestion[]
+
+  @@unique([gameId, key])
+  @@map("genesis_stages")
+}
+
+model GenesisQuestion {
+  id          String @id @default(cuid())
+  stageId     String
+  order       Int
+  prompt      String
+  // Explicação breve exibida após a resposta (certa ou errada) — fecha o raciocínio da questão.
+  explanation String
+
+  stage   GenesisStage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  options GenesisOption[]
+  answers GenesisAnswer[]
+
+  @@unique([stageId, order])
+  @@map("genesis_questions")
+}
+
+model GenesisOption {
+  id         String  @id @default(cuid())
+  questionId String
+  order      Int
+  text       String
+  isCorrect  Boolean @default(false)
+
+  question GenesisQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  GenesisAnswer[]
+
+  @@unique([questionId, order])
+  @@map("genesis_options")
+}
+
+// Resposta definitiva do participante a uma questão de uma etapa — uma por
+// (sessão, participante, questão); diferente de Placement, não é revisável:
+// o objetivo aqui é medir acerto por etapa, não acompanhar revisão de hipótese.
+model GenesisAnswer {
+  id            String   @id @default(cuid())
+  sessionId     String
+  participantId String
+  questionId    String
+  optionId      String
+  isCorrect     Boolean
+  createdAt     DateTime @default(now())
+
+  session     Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participant Participant     @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  question    GenesisQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option      GenesisOption   @relation(fields: [optionId], references: [id])
+
+  @@unique([sessionId, participantId, questionId])
+  @@map("genesis_answers")
 }
