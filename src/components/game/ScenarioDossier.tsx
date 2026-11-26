@@ -191,7 +191,7 @@ export function ScenarioDossier({
                   )}
                   {answer.insufficientIsValid && (
                     <p className="italic text-navy-700">
-                      Esta peça foi propositalmente subdocumentada — "informação insuficiente" também é
+                      Esta peça foi propositalmente subdocumentada — &ldquo;informação insuficiente&rdquo; também é
                       uma conclusão defensável aqui.
                     </p>
                   )}
