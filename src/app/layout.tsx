@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Fraunces, Inter, IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 const display = Fraunces({
@@ -21,6 +21,14 @@ const mono = IBM_Plex_Mono({
   weight: ["500", "600"],
 });
 
+// Fonte da identidade visual "Fechamento Mensal Folha" — usada só nas rotas
+// novas (/genesis/*), sem substituir --font-sans (Inter) do resto da plataforma.
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Catarse Interatividade",
@@ -38,7 +46,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="pt-BR" className={`${display.variable} ${sans.variable} ${mono.variable} ${jakarta.variable}`}>
       <body className="min-h-dvh bg-navy-950 font-sans text-paper-50 antialiased">{children}</body>
     </html>
   );
