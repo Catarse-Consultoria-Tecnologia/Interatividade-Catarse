@@ -1,8 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+export const GAME_SLUG = "operacao-genesis";
 
-const GAME_SLUG = "operacao-genesis";
+export interface SeedResult {
+  gameId: string;
+  gameName: string;
+  stages: number;
+  questions: number;
+}
 
 interface OptionSeed {
   text: string;
@@ -458,11 +463,22 @@ FROM lab_aluno99.Garantia;`,
   },
 ];
 
-async function main() {
-  console.log(`Removendo dados antigos do jogo "${GAME_SLUG}" (se existirem)...`);
+/**
+ * Popula (ou repopula do zero) o conteúdo da Operação Gênesis. Idempotente e compartilhada
+ * entre `prisma db seed` (local) e a rota administrativa `/api/admin/seed` (produção), no
+ * mesmo padrão de `seedOperacaoSFN`/`seedModulo3Processos`.
+ *
+ * Sessions não têm cascade a partir de Game, então apagamos as salas deste jogo antes de
+ * apagar o Game — senão o `game.deleteMany` falha por violação de FK quando já existir
+ * alguma sala criada para "operacao-genesis".
+ */
+export async function seedGenesis(prisma: PrismaClient): Promise<SeedResult> {
+  const existing = await prisma.game.findUnique({ where: { slug: GAME_SLUG } });
+  if (existing) {
+    await prisma.session.deleteMany({ where: { gameId: existing.id } });
+  }
   await prisma.game.deleteMany({ where: { slug: GAME_SLUG } });
 
-  console.log("Criando jogo Operação Gênesis...");
   const game = await prisma.game.create({
     data: {
       slug: GAME_SLUG,
@@ -513,14 +529,10 @@ async function main() {
     }
   }
 
-  console.log("Operação Gênesis semeada com sucesso.");
+  return {
+    gameId: game.id,
+    gameName: game.name,
+    stages: STAGES.length,
+    questions: STAGES.reduce((total, stage) => total + stage.questions.length, 0),
+  };
 }
-
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { seedOperacaoSFN } from "./seed-operacao-sfn";
 import { seedModulo3Processos } from "./seed-modulo3-processos";
+import { seedGenesis } from "./seed-genesis";
 
 const prisma = new PrismaClient();
 
@@ -18,6 +19,12 @@ async function main() {
   const result2 = await seedModulo3Processos(prisma);
   console.log(`Concluído. Jogo "${result2.gameName}" (${result2.gameId}) pronto com:`);
   console.log(`  - ${result2.pollQuestions} perguntas na rodada de enquete (Rodada 1)`);
+
+  console.log("\nPopulando Operação Gênesis (Módulo 4)...");
+  const result3 = await seedGenesis(prisma);
+  console.log(`Concluído. Jogo "${result3.gameName}" (${result3.gameId}) pronto com:`);
+  console.log(`  - ${result3.stages} etapas`);
+  console.log(`  - ${result3.questions} questões`);
 }
 
 main()
