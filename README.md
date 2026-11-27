@@ -21,7 +21,7 @@ apontando para um Postgres acessível).
 
 ```bash
 npm install
-cp .env.example .env        # ajuste DATABASE_URL se necessário
+cp .env.example .env        # ajuste DATABASE_URL/DIRECT_URL se necessário
 npm run prisma:migrate      # cria as tabelas
 npm run prisma:seed         # popula o jogo "Operação SFN — Quem Faz o Quê?"
 npm run dev                 # sobe Next.js + Socket.IO em http://localhost:3000
